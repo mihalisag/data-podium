@@ -1,22 +1,32 @@
 import pandas as pd
 
-results_df = pd.read_csv('data/gps_2024_season_results.csv')
 
-results_df = results_df[['Abbreviation', 'ClassifiedPosition', 'GridPosition', 'Status', 'EventName']]
-results_df = results_df[results_df['EventName'] != 'Pre-Season Testing']
-results_df = results_df.rename(columns={'Abbreviation': 'Driver'})
+def winner_func(event):
+    '''
+        Finds the winner of a specific Grand Prix
+    '''
 
-races_df = results_df.copy()
+    results_df = pd.read_csv('data/gps_2024_season_results.csv')
 
-races_df = races_df.drop(columns=['GridPosition'])
+    results_df = results_df[['Abbreviation', 'ClassifiedPosition', 'GridPosition', 'Status', 'EventName']]
+    results_df = results_df[results_df['EventName'] != 'Pre-Season Testing']
+    results_df = results_df.rename(columns={'Abbreviation': 'Driver'})
 
-race_results_df = races_df.copy()
+    races_df = results_df.copy()
 
-event_name = 'Bahrain Grand Prix'
+    races_df = races_df.drop(columns=['GridPosition'])
 
-race_results_df = race_results_df[race_results_df['EventName'] == event_name]
-race_results_df = race_results_df.drop(columns=['EventName'])
+    race_results_df = races_df.copy()
 
-winner_df = race_results_df[race_results_df['ClassifiedPosition'] == '1']
+    # event = 'Bahrain Grand Prix'
 
-print(f'Driver {winner_df['Driver'].values[0]} won the {event_name}')
+    race_results_df = race_results_df[race_results_df['EventName'] == event]
+    race_results_df = race_results_df.drop(columns=['EventName'])
+
+    winner_df = race_results_df[race_results_df['ClassifiedPosition'] == '1']
+
+    winner_sentence = f"Driver {winner_df['Driver'].values[0]} won the {event}"
+
+    # print(winner_sentence)
+
+    return winner_sentence
