@@ -3,7 +3,7 @@ from gpt4all import GPT4All
 import json
 import re
 
-from winner import winner_func
+from general_utils import *
 
 # Path to the downloaded model
 model_path = "/Users/mike/Library/Application Support/nomic.ai/GPT4All/airoboros-m-7b-3.1.2.Q4_0.gguf" # macos
@@ -18,7 +18,7 @@ functions = {
     "grand_prix_statistics": {
         "description": "This tool finds statistics of a grand prix",
         "params": {
-            "action": "The operation we want to perform on the data, such as 'winner', 'ranking', 'find_fastest_lap_time', etc",
+            "action": "The operation we want to perform on the data, such as 'winner', 'ranking', 'find_fastest_lap_time', 'positions_during_race' etc",
             "filters": {
                 "event": "The specific Grand Prix or event (e.g., 'Monaco Grand Prix', 'Silverstone 2023')",
                 "driver": "The name of the racing driver (e.g., 'Max Verstappen', 'Lewis Hamilton')",
@@ -30,7 +30,7 @@ functions = {
 
 # Streamlit app setup
 st.title("F1 Assistant")
-st.write("Ask questions, and get answers powered by GPT4All.")
+st.write("Ask questions, and get answers powered by airboros.")
 
 # Template for priming
 prime_template = """
@@ -47,26 +47,6 @@ functions_text = json.dumps(functions, indent=2)
 
 # User input
 user_input = st.text_area("Enter your question here:")
-
-# if st.button("Get Answer"):
-#     if user_input:
-#         # Generate the prime dynamically
-#         complete_prime = prime_template.format(user_input=user_input, functions_text=functions_text)
-        
-#         # Generate response
-#         response = gpt_model.generate(complete_prime, max_tokens=512)
-        
-#         try:
-#             # Parse response as JSON
-#             response_data = json.loads(response)
-#             st.write("### Parsed Response:")
-#             st.json(response_data)
-#         except json.JSONDecodeError:
-#             st.write("### Raw Response:")
-#             st.write(response)
-#     else:
-#         st.write("Please enter a question.")
-
 
 if st.button("Get Answer"):
     if user_input:
@@ -86,6 +66,9 @@ if st.button("Get Answer"):
         try:
             # Parse response as JSON
             response_data = json.loads(response)
+            st.success("Answer")
+
+            # Display parsed response (optional)
             st.write("### Parsed Response:")
             st.json(response_data)
 
@@ -101,8 +84,14 @@ if st.button("Get Answer"):
             st.write(f"Session: {session}")
 
             if action == 'winner':
-                winner_sentence = winner_func(event)
+                winner_sentence = get_winner(event)
                 st.write(winner_sentence)
+
+            if action == 'positions_during_race':
+                st.write(f"Displaying positions for {event}")
+                # Generate and display the plot
+                fig = positions_during_race(event)
+                st.pyplot(fig)
 
 
         except json.JSONDecodeError:
