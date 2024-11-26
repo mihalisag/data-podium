@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import fastf1
 import difflib # For matching similar strings
+from datetime import datetime
+from collections import Counter
 
 # Function to find the most similar word
 def get_most_similar_word(input_word, possible_words):
@@ -25,9 +27,27 @@ def format_timedelta(td: pd.Timedelta) -> str:
     return formatted_time
 
 
+def get_schedule_until_now(year: int=2024):
+    '''
+        Filters schedule of races until today
+    '''
+
+    # Retrieve the event schedule for the specified season
+    schedule = fastf1.get_event_schedule(year)
+
+    # Filter sessions until current date
+    schedule = schedule[schedule['EventDate'] <= datetime.today()]
+
+    # Do not need the preseason results
+    schedule = schedule[schedule['EventName'] != 'Pre-Season Testing']
+
+    return schedule
+
+
 def get_fastest_lap_time_result(event: str):
     '''
         Find the fastest lap of a Grand Prix (expand for qualifying ?? or not)
+        and returns variables
     '''
     year = 2024
     session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
@@ -38,7 +58,17 @@ def get_fastest_lap_time_result(event: str):
     driver = fastest_lap.Driver
     lap_num = int(fastest_lap.LapNumber)
     lap_time = format_timedelta(fastest_lap.LapTime)
+    
+    return driver, lap_num, lap_time
+    
 
+def get_fastest_lap_time_print(event: str):
+    '''
+        Find the fastest lap of a Grand Prix (expand for qualifying ?? or not)
+        and prints result
+    '''
+
+    driver, lap_num, lap_time = get_fastest_lap_time_result(event)
     sentence = f'Driver {driver} had the fastest lap time of {lap_time} at lap {lap_num}.'
 
     return sentence
@@ -145,5 +175,45 @@ def compare_metric(year: int, event: str, session_type: str, drivers_abbrs: list
     ax.set_ylabel(f'{metric} Input')
     ax.set_title(f'{metric} Comparison Between Drivers {drivers_abbrs} | Lap {lap} | {event}')
     ax.legend()
+    
+    return fig
+
+
+# Improve naming
+def fastest_driver_freq_plot(year: int=2024):
+    '''
+        Plots fastest lap count for every driver (at least one)
+    '''
+
+    schedule = get_schedule_until_now(2024)
+    events = list(schedule['EventName'])
+
+    driver_list = []
+
+    for event in events:
+        driver, _, _ = get_fastest_lap_time_result(event)
+
+        driver_list.append(driver)
+
+    # Create a frequency dictionary
+    fastest_driver_freq = dict(Counter(driver_list))
+
+    fastest_driver_freq = pd.DataFrame(fastest_driver_freq.items(), columns=['Driver', 'Frequency'])
+    fastest_driver_freq = fastest_driver_freq.sort_values(by='Frequency', ascending=False)
+
+    # Extract keys (drivers) and values (frequencies)
+    drivers = list(fastest_driver_freq['Driver'])
+    counts = list(fastest_driver_freq['Frequency'])
+
+    # Create a matplotlib figure
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Create the bar chart
+    ax.bar(drivers, counts, color='skyblue')
+
+    # Add labels and title
+    ax.set_xlabel('Drivers')
+    ax.set_ylabel('Frequency')
+    ax.set_title('Frequency of Fastest Laps')
     
     return fig

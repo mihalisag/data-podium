@@ -31,7 +31,7 @@ functions = {
             "event": {"type": "string", "description": "The specific Grand Prix or event (e.g., 'Monaco Grand Prix')."},
         }
     },
-    "get_fastest_lap_time_result": {
+    "get_fastest_lap_time_print": {
         "description": "Retrieve the fastest lap time in a session with some info.",
         "params": {
             "event": {"type": "string", "description": "The specific Grand Prix or event."},
@@ -55,7 +55,13 @@ functions = {
             "lap": {"type": "int", "description": "The specific lap of the session."},
 
         }
-    }
+    },
+    "fastest_driver_freq_plot": { # improve naming
+        "description": "Plots fastest lap count for every driver for a specific season year",
+        "params": {
+            "year": {"type": "int", "description": "The season's year."},
+        }
+    },
     # Add more functions here as needed.
 }
 
@@ -84,8 +90,9 @@ user_input = st.text_area("Enter your question here:")
 function_dispatcher = {
     "get_winner": get_winner,
     "get_positions_during_race": get_positions_during_race,
-    "get_fastest_lap_time_result": get_fastest_lap_time_result,
+    "get_fastest_lap_time_print": get_fastest_lap_time_print,
     "compare_metric": compare_metric,
+    "fastest_driver_freq_plot": fastest_driver_freq_plot,
 }
 
 
