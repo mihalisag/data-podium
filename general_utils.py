@@ -2,11 +2,56 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import pandas as pd
 import fastf1
+import difflib # For matching similar strings
+
+# Function to find the most similar word
+def get_most_similar_word(input_word, possible_words):
+    # Find the closest match using difflib
+    best_match = difflib.get_close_matches(input_word, possible_words, n=1, cutoff=0.6)
+    return best_match[0] if best_match else None
+
+
+def format_timedelta(td: pd.Timedelta) -> str:
+    # Convert Timedelta to total seconds
+    total_seconds = td.total_seconds()
+    
+    # Get minutes and remaining seconds
+    minutes = int(total_seconds // 60)
+    seconds = total_seconds % 60
+    
+    # Format the output in mm:ss.ssss
+    formatted_time = f"{minutes:02}:{seconds:06.4f}"
+    
+    return formatted_time
+
+
+def get_fastest_lap_time_result(event: str):
+    '''
+        Find the fastest lap of a Grand Prix (expand for qualifying ?? or not)
+    '''
+    year = 2024
+    session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
+    session.load()
+
+    fastest_lap = session.laps.pick_fastest()
+
+    driver = fastest_lap.Driver
+    lap_num = int(fastest_lap.LapNumber)
+    lap_time = format_timedelta(fastest_lap.LapTime)
+
+    sentence = f'Driver {driver} had the fastest lap time of {lap_time} at lap {lap_num}.'
+
+    return sentence
+
 
 def get_winner(event: str):
     '''
         Finds the winner of a specific Grand Prix
     '''
+
+    # Stick to fastf1-saved event format (maybe cannot use difflib due to exceptions like Italy - Emilia Romagna Grand Prix (??))
+    event = fastf1.get_event(2024, event)
+    event = event['EventName']
 
     results_df = pd.read_csv('data/gps_2024_season_results.csv')
     results_df = results_df[['Abbreviation', 'ClassifiedPosition', 'GridPosition', 'Status', 'EventName']]
@@ -20,20 +65,25 @@ def get_winner(event: str):
     race_results_df = race_results_df.drop(columns=['EventName'])
 
     winner_df = race_results_df[race_results_df['ClassifiedPosition'] == '1']
+    winner = winner_df['Driver'].values[0]
 
-    winner_sentence = f"Driver {winner_df['Driver'].values[0]} won the {event}"
+    winner_sentence = f"Driver {winner} won the {event}"
 
     return winner_sentence
 
 
-def positions_during_race(event: str):
+def get_positions_during_race(event: str, drivers_abbrs: list=[]):
     '''
         Returns a matplotlib figure of the positions of drivers
-        in a specific Grand Prix.
+        in a specific Grand Prix. Can filter drivers (optional)
     '''
     pos_df = pd.read_csv("data/gps_2024_season_laps.csv")
     pos_df = pos_df[['Driver', 'LapNumber', 'Stint', 'Position', 'EventName']]
     pos_df = pos_df[pos_df['EventName'] == event]
+
+    if drivers_abbrs:
+        # Filter DataFrame for specific drivers
+        pos_df = pos_df[pos_df['Driver'].isin(drivers_abbrs)]
 
     # Create a matplotlib figure
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -55,7 +105,7 @@ def positions_during_race(event: str):
 
 def compare_metric(year: int, event: str, session_type: str, drivers_abbrs: list, metric: str, lap:int):
     '''
-    Compares the telemetry of a specific attribute from a list of drivers' abbreviations.
+    Compares the telemetry of a specific metric from a list of drivers' abbreviations.
 
     Parameters:
     year:
@@ -68,6 +118,7 @@ def compare_metric(year: int, event: str, session_type: str, drivers_abbrs: list
     Returns:
     None. Displays a plot of the telemetry attribute comparison.
     '''
+    year = 2024
 
     session = fastf1.get_session(year, event, session_type)  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
     session.load()
@@ -75,6 +126,13 @@ def compare_metric(year: int, event: str, session_type: str, drivers_abbrs: list
     # Create dictionaries for laps and telemetry data.
     drivers = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap) for abbr in drivers_abbrs}
     telemetry_drivers = {abbr: drivers[abbr].get_telemetry() for abbr in drivers_abbrs}
+
+    # Find relevant names based on existing telemetry DataFrame columns
+    possible_metrics = ['Date', 'SessionTime', 'DriverAhead', 'DistanceToDriverAhead', 'Time',
+                        'RPM', 'Speed', 'nGear', 'Throttle', 'Brake', 'DRS', 'Source',
+                        'Distance', 'RelativeDistance', 'Status', 'X', 'Y', 'Z'] # easier than accessing random driver and then telemetry -> maybe can improve
+   
+    metric = get_most_similar_word(metric, possible_metrics)
 
     # Create a matplotlib figure
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -85,7 +143,7 @@ def compare_metric(year: int, event: str, session_type: str, drivers_abbrs: list
     # Adding labels and legend
     ax.set_xlabel('Distance (m)')
     ax.set_ylabel(f'{metric} Input')
-    ax.set_title(f'{metric} Comparison Between Drivers {drivers_abbrs} | Lap {lap}')
+    ax.set_title(f'{metric} Comparison Between Drivers {drivers_abbrs} | Lap {lap} | {event}')
     ax.legend()
     
     return fig

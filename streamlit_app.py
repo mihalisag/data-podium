@@ -31,26 +31,29 @@ functions = {
             "event": {"type": "string", "description": "The specific Grand Prix or event (e.g., 'Monaco Grand Prix')."},
         }
     },
-    "get_fastest_lap_time": {
-        "description": "Retrieve the fastest lap time in a session.",
+    "get_fastest_lap_time_result": {
+        "description": "Retrieve the fastest lap time in a session with some info.",
         "params": {
             "event": {"type": "string", "description": "The specific Grand Prix or event."},
-            "session": {"type": "string", "description": "The type of session (e.g., 'race', 'qualifying')."}
         }
     },
     "get_positions_during_race": {
         "description": "Show positions of drivers throughout a race.",
         "params": {
             "event": {"type": "string", "description": "The specific Grand Prix or event."},
-            "driver": {"type": "string", "description": "The name of the driver (optional)."}
+            "drivers_abbrs": {"type": "list", "description": "The names of the drivers."},
         }
     },
-    "compare_drivers": {
-        "description": "Compare two drivers based on a specific metric (e.g., speed, lap time).",
+    "compare_metric": {
+        "description": "Compares the telemetry of a specific metric (e.g. 'speed', 'gas', 'throttle', 'gear') from a list of drivers.",
         "params": {
-            "driver1": {"type": "string", "description": "The first driver's name."},
-            "driver2": {"type": "string", "description": "The second driver's name."},
-            "metric": {"type": "string", "description": "The metric to compare (e.g., 'speed', 'lap_time')."}
+            "year": {"type": "int", "description": "The Grand Prix's year."},
+            "event": {"type": "string", "description": "The specific Grand Prix or event (e.g., 'Monaco Grand Prix')."},
+            "session_type": {"type": "string", "description": "The type of session (e.g., 'race', 'qualifying')."},
+            "drivers_abbrs": {"type": "list", "description": "The names of the drivers."},
+            "metric": {"type": "string", "description": "The metric to compare (e.g., 'speed', 'gas')."},
+            "lap": {"type": "int", "description": "The specific lap of the session."},
+
         }
     }
     # Add more functions here as needed.
@@ -59,7 +62,7 @@ functions = {
 
 # Streamlit app setup
 st.title("F1 Assistant")
-st.write("Ask questions, and get answers powered by airboros.")
+st.write("Ask questions, and get answers powered by gpt-4o-mini.")
 
 prime_template = """
 As an AI assistant, analyze the user's input and select the most suitable function and parameters from the list of available functions below. Match the user's intent to the corresponding function and fill in its parameters using information extracted from the input. Structure your response as JSON.
@@ -80,6 +83,9 @@ user_input = st.text_area("Enter your question here:")
 
 function_dispatcher = {
     "get_winner": get_winner,
+    "get_positions_during_race": get_positions_during_race,
+    "get_fastest_lap_time_result": get_fastest_lap_time_result,
+    "compare_metric": compare_metric,
 }
 
 
@@ -123,7 +129,18 @@ if st.button("Get Answer"):
                 # Call the selected function dynamically
                 if function_name in function_dispatcher:
                     result = function_dispatcher[function_name](**params)  # Pass params as kwargs
-                    st.success(f"Answer: {result}")
+                    
+                    # Handle different result types dynamically
+                    if isinstance(result, str):  # If the result is text
+                        st.success(f"Answer: {result}")
+                    elif isinstance(result, pd.DataFrame):  # If the result is a pandas DataFrame
+                        st.dataframe(result)  # Display the DataFrame
+                    elif isinstance(result, plt.Figure):  # If the result is a Matplotlib figure
+                        st.pyplot(result)  # Render the Matplotlib figure
+                    else:
+                        st.warning("Unexpected output type.")
+                        st.write(result)  # Fallback to display the raw result
+
                 else:
                     st.error(f"Function '{function_name}' not implemented.")
             
