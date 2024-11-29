@@ -1,0 +1,8 @@
+fastf1==3.4.4
+gpt4all==2.8.2
+matplotlib==3.9.2
+openai==1.55.3
+pandas==2.2.3
+python-dotenv==1.0.1
+Requests==2.32.3
+streamlit==1.40.1
