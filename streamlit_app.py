@@ -3,10 +3,13 @@ from dotenv import load_dotenv
 import json
 import re
 import streamlit as st
+
+import general_utils
 from general_utils import *
 
 from gpt4all import GPT4All
 from openai import OpenAI
+
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -24,47 +27,7 @@ client = OpenAI(
 # gpt_model = GPT4All(model_name=model_path)
 
 
-functions = {
-    "get_winner": {
-        "description": "Find the winner of a specific Grand Prix or race.",
-        "params": {
-            "event": {"type": "string", "description": "The specific Grand Prix or event (e.g., 'Monaco Grand Prix')."},
-        }
-    },
-    "get_fastest_lap_time_print": {
-        "description": "Retrieve the fastest lap time in a session with some info.",
-        "params": {
-            "event": {"type": "string", "description": "The specific Grand Prix or event."},
-        }
-    },
-    "get_positions_during_race": {
-        "description": "Show positions of drivers throughout a race.",
-        "params": {
-            "event": {"type": "string", "description": "The specific Grand Prix or event."},
-            "drivers_abbrs": {"type": "list", "description": "The names of the drivers."},
-        }
-    },
-    "compare_metric": {
-        "description": "Compares the telemetry of a specific metric (e.g. 'speed', 'gas', 'throttle', 'gear') from a list of drivers.",
-        "params": {
-            "year": {"type": "int", "description": "The Grand Prix's year."},
-            "event": {"type": "string", "description": "The specific Grand Prix or event (e.g., 'Monaco Grand Prix')."},
-            "session_type": {"type": "string", "description": "The type of session (e.g., 'race', 'qualifying')."},
-            "drivers_abbrs": {"type": "list", "description": "The names of the drivers."},
-            "metric": {"type": "string", "description": "The metric to compare (e.g., 'speed', 'gas')."},
-            "lap": {"type": "int", "description": "The specific lap of the session."},
-
-        }
-    },
-    "fastest_driver_freq_plot": { # improve naming
-        "description": "Plots fastest lap count for every driver for a specific season year",
-        "params": {
-            "year": {"type": "int", "description": "The season's year."},
-        }
-    },
-    # Add more functions here as needed.
-}
-
+functions = functions_registry
 
 # Streamlit app setup
 st.title("F1 Assistant")
@@ -87,12 +50,11 @@ functions_text = json.dumps(functions, indent=2)
 user_input = st.text_area("Enter your question here:")
 
 
+# Automatically create the function dispatcher
 function_dispatcher = {
-    "get_winner": get_winner,
-    "get_positions_during_race": get_positions_during_race,
-    "get_fastest_lap_time_print": get_fastest_lap_time_print,
-    "compare_metric": compare_metric,
-    "fastest_driver_freq_plot": fastest_driver_freq_plot,
+    name: func
+    for name, func in globals()['general_utils'].__dict__.items()
+    if name in functions_registry
 }
 
 
@@ -141,9 +103,32 @@ if st.button("Get Answer"):
                     if isinstance(result, str):  # If the result is text
                         st.success(f"Answer: {result}")
                     elif isinstance(result, pd.DataFrame):  # If the result is a pandas DataFrame
-                        st.dataframe(result)  # Display the DataFrame
+                        df_height = (len(result) + 1) * 35 + 3 # workaround to avoid scrolling
+                        st.dataframe(result, hide_index=True, height=df_height)  # Display the DataFrame
                     elif isinstance(result, plt.Figure):  # If the result is a Matplotlib figure
                         st.pyplot(result)  # Render the Matplotlib figure
+                    elif isinstance(result, list):  # If the result is a list
+                        if len(result) > 0:  # Ensure the list is not empty
+                            first_item = result[0]
+                            if isinstance(first_item, str):  # List of strings
+                                for idx, item in enumerate(result):
+                                    st.success(f"Answer {idx + 1}: {item}")
+                            elif isinstance(first_item, pd.DataFrame):  # List of DataFrames
+                                for idx, item in enumerate(result):
+                                    st.write(f"DataFrame {idx + 1}:")
+                                    df_height = (len(item) + 1) * 35 + 3 # workaround to avoid scrolling
+                                    st.dataframe(item, hide_index=True, height=df_height)  # Display the DataFrame
+                            elif isinstance(first_item, plt.Figure):  # List of Matplotlib figures
+                                for idx, item in enumerate(result):
+                                    st.write(f"Figure {idx + 1}:")
+                                    st.pyplot(item)
+                            else:
+                                st.warning("List contains unsupported item types.")
+                                for idx, item in enumerate(result):
+                                    st.write(f"Item {idx + 1}:")
+                                    st.write(item)  # Fallback for unsupported list items
+                        else:
+                            st.info("The list is empty.")
                     else:
                         st.warning("Unexpected output type.")
                         st.write(result)  # Fallback to display the raw result

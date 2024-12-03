@@ -1,11 +1,57 @@
 import pandas as pd
+
+import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import pandas as pd
+
 import fastf1
+import fastf1.plotting
+
 import difflib # For matching similar strings
+
 from datetime import datetime
+
 from collections import Counter
+
+import inspect
+from typing import Callable, Dict, Any, List
+
+# A dictionary to store registered functions
+functions_registry: Dict[str, Dict[str, Any]] = {}
+
+def register_function(func: Callable) -> Callable:
+    """
+    Decorator to register a function into the `functions_registry`.
+    Parses the docstring to extract description and parameter info.
+    """
+    docstring = inspect.getdoc(func) or ""
+    lines = docstring.split("\n")
+    description = lines[0].strip() if lines else "No description available."
+
+    # Parse parameters from the docstring
+    params = {}
+    parsing_params = False
+    for line in lines[1:]:
+        line = line.strip()
+        if line.lower().startswith("parameters:"):
+            parsing_params = True
+            continue
+        if parsing_params:
+            if not line or line.startswith("Returns:"):
+                break
+            # Parse each parameter line (e.g., "name (type): description")
+            if "(" in line and ")" in line and ":" in line:
+                param_name = line.split("(")[0].strip()
+                param_type = line.split("(")[1].split(")")[0].strip()
+                param_desc = line.split(":")[1].strip()
+                params[param_name] = {"type": param_type, "description": param_desc}
+
+    # Register function in the global registry
+    functions_registry[func.__name__] = {
+        "description": description,
+        "params": params
+    }
+    return func
 
 
 # Driver colors codes
@@ -55,9 +101,6 @@ def lighten_color(color, amount=0.5):
     Parameters:
     - color: str (HEX code or color name)
     - amount: float (0.0 for no change, 1.0 for full white)
-    
-    Returns:
-    - str: Lightened color as HEX code
     """
     try:
         # Convert color to RGB
@@ -92,10 +135,17 @@ def format_timedelta(td: pd.Timedelta) -> str:
     return formatted_time
 
 
+
+## Telemetry functions
+
+@register_function
 def get_schedule_until_now(year: int=2024):
-    '''
-        Filters schedule of races until today
-    '''
+    """
+    Filters and returns the schedule of races up to the current date for a given season.
+
+    Parameters:
+        year (int): The season's year.
+    """
 
     # Retrieve the event schedule for the specified season
     schedule = fastf1.get_event_schedule(year)
@@ -109,16 +159,22 @@ def get_schedule_until_now(year: int=2024):
     return schedule
 
 
+@register_function
+def get_reaction_time(event:str, speed: int=100):
+    """
+    Retrieves the reaction time of drivers to reach a specific speed at the start of the race.
 
-def get_reaction_time(event:str, drivers_list: list, speed: float):
-    '''
-        Get reaction time of drivers to reach a specific speed in the race start
-    '''
+    Parameters:
+        event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+        speed (int): The target speed (in km/h) to reach at the race start.
+    """
 
     year = 2024
 
     session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
     session.load()
+
+    drivers_list = session.laps['Driver'].unique()
 
     driver_reaction_dict = dict()
 
@@ -139,12 +195,13 @@ def get_reaction_time(event:str, drivers_list: list, speed: float):
 
     reaction_df = pd.DataFrame(driver_reaction_dict.items(), columns=['Driver', 'ReactionTime'])
     reaction_df = reaction_df.sort_values('ReactionTime')
+    reaction_df = reaction_df.head()
 
     sorted_drivers = reaction_df['Driver']
     sorted_reaction_times = reaction_df['ReactionTime']
 
     # Create a matplotlib figure
-    fig, ax = plt.subplots(figsize=(5, 3))
+    fig, ax = plt.subplots(figsize=(10, 6))
 
     # Generate the list of colors for the bars based on the DRIVER_COLORS mapping
     bar_colors = [DRIVER_COLORS[driver] for driver in sorted_drivers]
@@ -160,24 +217,24 @@ def get_reaction_time(event:str, drivers_list: list, speed: float):
     max_reaction = max(sorted_reaction_times)
 
     # Add a small margin around the reaction times
-    y_margin = (max_reaction - min_reaction) * 0.5  # 10% of the range
+    y_margin = (max_reaction - min_reaction) * 0.7  # 10% of the range
 
     # Apply the y-axis limits
     ax.set_ylim(min_reaction - y_margin, max_reaction + y_margin)
 
-    ax.set_title('Reaction time of drivers')
+    ax.set_title(f'Reaction time of drivers to {speed} km/h')
 
-    plt.show()
-
-    # return driver_reaction_dict
+    return fig
     
 
-
+@register_function
 def get_fastest_lap_time_result(event: str):
-    '''
-        Find the fastest lap of a Grand Prix (expand for qualifying ?? or not)
-        and returns variables
-    '''
+    """
+    Finds the fastest lap time for a specific Grand Prix or event and returns relevant details.
+
+    Parameters:
+        event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+    """
     year = 2024
     session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
     session.load()
@@ -191,11 +248,14 @@ def get_fastest_lap_time_result(event: str):
     return driver, lap_num, lap_time
     
 
+@register_function
 def get_fastest_lap_time_print(event: str):
-    '''
-        Find the fastest lap of a Grand Prix (expand for qualifying ?? or not)
-        and prints result
-    '''
+    """
+    Finds and prints the fastest lap time for a specific Grand Prix or event.
+
+    Parameters:
+        event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+    """
 
     driver, lap_num, lap_time = get_fastest_lap_time_result(event)
     sentence = f'Driver {driver} had the fastest lap time of {lap_time} at lap {lap_num}.'
@@ -203,10 +263,14 @@ def get_fastest_lap_time_print(event: str):
     return sentence
 
 
+@register_function
 def get_season_podiums():
-    '''
-        Returns podiums of the season
-    '''
+    """
+    Retrieves the podium finishes for all races in a season.
+
+    Parameters:
+        None
+    """
 
     # Load and preprocess results data
     results_df = (
@@ -233,32 +297,30 @@ def get_season_podiums():
 
     bar_colors = [DRIVER_COLORS[driver] for driver in season_podiums_df["Driver"]]
 
-    # Create bar chart
-    plt.figure(figsize=(8, 5))  # Optional: Set figure size
-    plt.bar(season_podiums_df["Driver"], season_podiums_df["count"], color=bar_colors)
+    # Create a matplotlib figure and axis
+    fig, ax = plt.subplots(figsize=(8, 5))  # Optional: Set figure size
 
-    # Add labels and title
-    plt.xlabel("Driver", fontsize=12)
-    plt.ylabel("Podium count", fontsize=12)
-    plt.title("Podiums for each driver", fontsize=14)
+    # Plot the bar chart on the ax object
+    ax.bar(season_podiums_df["Driver"], season_podiums_df["count"], color=bar_colors)
 
-    # Set y-axis ticks to increment one by one
-    plt.yticks(range(0, max(season_podiums_df["count"]) + 1, 1))  # Start at 0, go to max count, step by 1
+    # Set labels and title using ax
+    ax.set_xlabel("Driver", fontsize=12)
+    ax.set_ylabel("Podium count", fontsize=12)
+    ax.set_title("Podiums for each driver", fontsize=14)
 
-    # Show the plot
-    plt.show()
+    # Set y-axis ticks to increment by one (from 0 to max count)
+    ax.set_yticks(range(0, max(season_podiums_df["count"]) + 1, 1))  # Start at 0, go to max count, step by 1
+
+    return fig
 
 
-
+@register_function
 def get_race_results(event: str) -> pd.DataFrame:
     """
     Retrieves the race results for a specific Grand Prix.
 
     Parameters:
-        event_name (str): Name of the Grand Prix.
-
-    Returns:
-        pd.DataFrame: DataFrame containing race results for the specified event.
+        event (str): Name of the Grand Prix.
     """
     # Retrieve the correct event name from fastf1
     event_name = fastf1.get_event(2024, event)['EventName']
@@ -275,17 +337,14 @@ def get_race_results(event: str) -> pd.DataFrame:
 
     return results_df
 
-
+@register_function
 def get_winner(event: str) -> str:
-    '''
-    Finds the winner of a specific Grand Prix.
-
+    """
+    Find the winner of a specific Grand Prix or race.
+    
     Parameters:
-        event (str): Name of the Grand Prix.
-
-    Returns:
-        str: Sentence indicating the winner of the specified Grand Prix.
-    '''
+        event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+    """
 
     # Retrieve the correct event name from fastf1
     event_name = fastf1.get_event(2024, event)['EventName']
@@ -300,11 +359,15 @@ def get_winner(event: str) -> str:
 
 
 # Old implementation
+@register_function
 def get_positions_during_race(event: str, drivers_abbrs: list=[]):
-    '''
-        Returns a matplotlib figure of the positions of drivers
-        in a specific Grand Prix. Can filter drivers (optional)
-    '''
+    """
+    Show positions of drivers throughout a race.
+    
+    Parameters:
+        event (str): The specific Grand Prix or event.
+        drivers_abbrs (list): The names of the drivers.
+    """
     pos_df = pd.read_csv("data/gps_2024_season_laps.csv")
     pos_df = pos_df[['Driver', 'LapNumber', 'Stint', 'Position', 'EventName']]
     pos_df = pos_df[pos_df['EventName'] == event]
@@ -367,21 +430,19 @@ def get_positions_during_race(event: str, drivers_abbrs: list=[]):
 
 
 # Expand for multiple laps (of same driver) ?
+@register_function
 def compare_metric(year: int, event: str, session_type: str, drivers_abbrs: list, metric: str, lap:int):
-    '''
-    Compares the telemetry of a specific metric for a specific lap from a list of drivers' abbreviations.
-
-    Parameters:
-    year:
-    event:
-    session_type:
-    drivers_abbrs (list): A list of driver abbreviations to compare.
-    metric (str): The telemetry metric to compare-plot (e.g., 'Speed', 'Throttle').
-    lap (int): The specific lap number to use for comparison.
+    """
+    Compares the telemetry of a specific metric (e.g., 'speed', 'gas', 'throttle', 'gear') from a list of drivers.
     
-    Returns:
-    None. Displays a plot of the telemetry attribute comparison.
-    '''
+    Parameters:
+        year (int): The Grand Prix's year.
+        event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+        session_type (str): The type of session (e.g., 'race', 'qualifying').
+        drivers_abbrs (list): The names of the drivers to compare.
+        metric (str): The metric to compare (e.g., 'speed', 'gas').
+        lap (int): The specific lap of the session.
+    """
     year = 2024
 
     session = fastf1.get_session(year, event, session_type)  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
@@ -414,10 +475,14 @@ def compare_metric(year: int, event: str, session_type: str, drivers_abbrs: list
 
 
 # Improve naming
+@register_function
 def fastest_driver_freq_plot(year: int=2024):
-    '''
-        Plots fastest lap count for every driver (at least one)
-    '''
+    """
+    Plots the count of fastest laps for every driver who achieved at least one fastest lap in a given season.
+
+    Parameters:
+        year (int): The season's year. Defaults to 2024.
+    """
 
     schedule = get_schedule_until_now(2024)
     events = list(schedule['EventName'])
@@ -460,11 +525,14 @@ def fastest_driver_freq_plot(year: int=2024):
 # Extend this by:
 #  - Having specific color for each driver (need to think for global solution, that is other plots)
 #  - Making it for multiple teams (pairs of drivers) (only for the second plot might be problematic)
+@register_function
 def compare_quali_season(drivers_list: list):
-    '''
-        Compares qualifying performance of pair of drivers across season
-    '''
+    """
+    Compares the qualifying performance of pairs of drivers across a season.
 
+    Parameters:
+        drivers_list (list): A list of driver names or abbreviations to compare.
+    """
     # Load and preprocess the data
     quali_df = pd.read_csv('data/gps_2024_season_quali.csv')
     quali_df = quali_df[['Abbreviation', 'Position', 'EventName']]
@@ -473,7 +541,7 @@ def compare_quali_season(drivers_list: list):
 
     # Plot with specific DRIVER_COLORS
     bar_colors = {driver: DRIVER_COLORS[driver] for driver in drivers_list}
-    bar_colors[drivers_list[1]] = lighten_color(bar_colors[drivers_list[1]], amount=0.4)
+    bar_colors[drivers_list[1]] = lighten_color(bar_colors[drivers_list[1]], amount=0.2)
 
     # Plot 1: Line plot for qualifying positions
     fig1, ax1 = plt.subplots(figsize=(10, 6))
@@ -497,7 +565,6 @@ def compare_quali_season(drivers_list: list):
 
     # Automatically adjust layout for the first plot
     fig1.tight_layout()
-    plt.show()
 
     # Pivot the DataFrame for easier comparison by EventName
     pivoted = quali_df.pivot(index='EventName', columns='Driver', values='Position')
@@ -544,6 +611,75 @@ def compare_quali_season(drivers_list: list):
 
     # Automatically adjust layout for the second plot
     fig2.tight_layout()
+    
+    return [fig1, fig2]
+
+@register_function
+def laptime_plot(year: int, event:str, drivers_abbrs: list):
+    """
+    Generates a line plot of the lap times of specified drivers in a specific Grand Prix.
+    
+    Parameters:
+        year (int): The Grand Prix's year.
+        event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+        drivers_abbrs (list): The names of the drivers to compare.
+    """
+
+
+    # Enable Matplotlib patches for plotting timedelta values and load
+    # FastF1's dark color scheme
+    fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False,
+                          color_scheme=None)
+
+
+    # Load a specific race session
+    session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
+    session.load()
+
+    # Retrieve the correct event name from fastf1
+    event_name = fastf1.get_event(2024, event)['EventName']
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    # Loop over each driver abbreviation
+    for driver in drivers_abbrs:
+        driver_laps = session.laps.pick_drivers(driver).pick_quicklaps().reset_index()
+
+        sns.lineplot(
+        data=driver_laps,
+        x="LapNumber",
+        y="LapTime",
+        ax=ax,
+        label=driver,  # Label each driver's data for the legend
+        color=DRIVER_COLORS[driver],
+        linewidth=2,  # Adjust the thickness of the lines
+        marker='o'
+        )
+
+
+        # sns.scatterplot(
+        #     data=driver_laps,
+        #     x="LapNumber",
+        #     y="LapTime",
+        #     ax=ax,
+        #     # hue="Compound",
+        #     # palette=fastf1.plotting.get_compound_mapping(session=session),
+        #     s=80,
+        #     linewidth=0,
+        #     legend='auto',
+        #     label=driver,  # Label each driver's data for the legend
+        #     color=DRIVER_COLORS[driver]
+        # )
+
+
+    ax.set_xlabel("Lap Number")
+    ax.set_ylabel("Lap Time")
+    ax.invert_yaxis()
+
+    plt.suptitle(f"Laptimes in the {year} {event_name}")
+    plt.grid(which='major', axis='both')
+    sns.despine(left=True, bottom=True)
+
+    plt.legend(title="Driver")
+    plt.tight_layout()
     plt.show()
-
-
