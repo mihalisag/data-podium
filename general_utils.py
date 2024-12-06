@@ -322,13 +322,13 @@ def get_season_podiums():
 
 
 @register_function
-def get_race_results(event: str, year: int) -> pd.DataFrame:
+def get_race_results(event: str, year: int=2024) -> pd.DataFrame:
     """
     Retrieves the race results for a specific Grand Prix.
 
     Parameters:
-        year (int): The Grand Prix's year.
         event (str): Name of the Grand Prix.
+        year (int): The Grand Prix's year.
     """
     # Retrieve the correct event name from fastf1
     event_name = fastf1.get_event(year, event)['EventName']
@@ -410,6 +410,7 @@ def get_positions_during_race(event: str, year: int=2024):
 
     Parameters:
         event (str): The specific Grand Prix or event.
+        year (int): The Grand Prix's year.
     """
 
     # Enable fastf1 cache
@@ -449,40 +450,45 @@ def get_drs_zones(car_data):
         Locates DRS for a specific track
     '''
 
-    # car_data['DRS'].unique()
-
     # Extract distances for specific DRS zones
     drs_distances = car_data[car_data['DRS'].isin([10, 12, 14])]['Distance']
 
-    # Calculate differences between consecutive DRS distances
-    distance_differences = drs_distances.diff()
+    if len(drs_distances) >= 2:
 
-    # Compute the mean and standard deviation of the differences
-    mean_difference = np.mean(distance_differences)
-    std_dev_difference = np.std(distance_differences)
+        # Calculate differences between consecutive DRS distances
+        distance_differences = drs_distances.diff()
 
-    # Calculate Z-scores to identify outliers in distance differences
-    z_scores = [(diff - mean_difference) / std_dev_difference for diff in distance_differences]
+        # Compute the mean and standard deviation of the differences
+        mean_difference = np.mean(distance_differences)
+        std_dev_difference = np.std(distance_differences)
 
-    # Filter Z-scores to identify positive outliers
-    positive_outlier_z_scores = [score for score in z_scores if score > 0]
+        # Calculate Z-scores to identify outliers in distance differences
+        z_scores = [(diff - mean_difference) / std_dev_difference for diff in distance_differences]
 
-    # Find the indices of the positive outlier Z-scores
-    outlier_indices = [z_scores.index(score) for score in positive_outlier_z_scores]
+        # Filter Z-scores to identify positive outliers
+        positive_outlier_z_scores = [score for score in z_scores if score > 0]
 
-    # Define the start and end indices for DRS zones
-    drs_zone_boundaries = [int(drs_distances.index[0]), *outlier_indices, int(drs_distances.index[-1])]
+        # Find the indices of the positive outlier Z-scores
+        outlier_indices = [z_scores.index(score) for score in positive_outlier_z_scores]
 
-    # Pair consecutive indices to define DRS zones
-    drs_zone_indices = [
-        [drs_zone_boundaries[i], drs_zone_boundaries[i + 1]]
-        for i in range(len(drs_zone_boundaries) - 1)
-    ]
+        # Define the start and end indices for DRS zones
+        drs_zone_boundaries = [int(drs_distances.index[0]), *outlier_indices, int(drs_distances.index[-1])]
 
-    # Extract the DRS zones as lists of distances
-    drs_zones = [
-        list(drs_distances.iloc[start:end]) for start, end in drs_zone_indices
-    ]
+        # Pair consecutive indices to define DRS zones
+        drs_zone_indices = [
+            [drs_zone_boundaries[i], drs_zone_boundaries[i + 1]]
+            for i in range(len(drs_zone_boundaries) - 1)
+        ]
+
+        # Extract the DRS zones as lists of distances
+        drs_zones = [
+            list(drs_distances.iloc[start:end]) for start, end in drs_zone_indices
+        ]
+
+        # workaround
+        drs_zones = [[zone[0], zone[-1]] for zone in drs_zones if len(zone) >= 2]
+    else:
+        return []
 
     return drs_zones
 
@@ -494,16 +500,19 @@ def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: s
     Compares the telemetry of a specific metric (e.g., 'speed', 'gas', 'throttle', 'gear') from a list of drivers.
     
     Parameters:
-        year (int): The Grand Prix's year.
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         session_type (str): The type of session (e.g., 'race', 'qualifying').
         drivers_abbrs (list): The names of the drivers to compare.
         metric (str): The metric to compare (e.g., 'speed', 'gas').
         lap (int): The specific lap of the session.
+        year (int): The Grand Prix's year.
     """
 
     # Enable fastf1 cache
     fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
+
+    # Specific plottting style
+    fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False, color_scheme='fastf1')
 
     session = fastf1.get_session(year, event, session_type)  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
     session.load()
@@ -520,22 +529,23 @@ def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: s
     metric = get_most_similar_word(metric, possible_metrics)
 
     # Create a matplotlib figure
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(16, 6))
 
+    # Main metric graph
     for abbr, telemetry_driver in telemetry_drivers.items():
         ax.plot(telemetry_driver['Distance'], telemetry_driver[metric], label=abbr, color=DRIVER_COLORS[abbr])
 
-    # Need to get qualifying data for DRS
-    quali_session = fastf1.get_session(year, event, 'Q') 
-    quali_session.load()
-    car_data_drivers = {abbr: quali_session.laps.pick_drivers(abbr).pick_fastest().get_car_data().add_distance() for abbr in drivers_abbrs}
-    car_data = car_data_drivers[drivers_abbrs[0]] # might need to modify to take from at least a driver that had DRS
-    circuit_info = quali_session.get_circuit_info()
+    car_data_drivers = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap).get_car_data().add_distance() for abbr in drivers_abbrs}
+    
+    # random driver needed for the plots
+    random_data = list(car_data_drivers.values())[0]
+
+    circuit_info = session.get_circuit_info()
 
     # Draw vertical dotted lines at each corner that range from slightly below the
     # minimum speed to slightly above the maximum speed.
-    v_min = car_data['Speed'].min()
-    v_max = car_data['Speed'].max()
+    v_min = random_data['Speed'].min()
+    v_max = random_data['Speed'].max()
     ax.vlines(x=circuit_info.corners['Distance'], ymin=v_min-20, ymax=v_max+20,
             linestyles='dotted', colors='grey')
 
@@ -546,14 +556,21 @@ def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: s
         txt = f"{corner['Number']}{corner['Letter']}"
         ax.text(corner['Distance'], v_min-30, txt,
                 va='center_baseline', ha='center', size='small')
-        
-    # Locate DRS zones
-    drs_zones = get_drs_zones(car_data)
 
-    # Highlight specific distance ranges with a green transparent box
-    for drs_zone in drs_zones:
-        start, end = [drs_zone[0], drs_zone[-1]]
-        ax.axvspan(start, end, color='green', alpha=0.2)
+
+    # Find DRS zones for each driver and plot box with their color
+    for abbr in drivers_abbrs:
+
+        # Load car data for specific driver
+        car_data = car_data_drivers[abbr]
+
+        # Locate DRS zones
+        drs_zones = get_drs_zones(car_data)
+
+        # Highlight specific distance ranges with a green transparent box
+        for drs_zone in drs_zones:
+            start, end = drs_zone
+            ax.axvspan(start, end, color=DRIVER_COLORS[abbr], alpha=0.15)
 
     # Adding labels and legend
     ax.set_xlabel('Distance (m)')
@@ -712,14 +729,14 @@ def compare_quali_season(drivers_list: list):
     return [fig1, fig2]
 
 @register_function
-def laptime_plot(year: int, event:str, drivers_abbrs: list):
+def laptime_plot(event:str, drivers_abbrs: list, year: int=2024):
     """
     Generates a line plot of the lap times of specified drivers in a specific Grand Prix.
     
     Parameters:
-        year (int): The Grand Prix's year.
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         drivers_abbrs (list): The names of the drivers to compare.
+        year (int): The Grand Prix's year.
     """
     # Enable fastf1 cache
     fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
@@ -851,8 +868,8 @@ def laptime_distribution_plot(event: str, year: int=2024):
     Generates a violin plot of the lap time distributions for the top 10 point finishers in a specified Grand Prix.
     
     Parameters:
-        year (int): The Grand Prix's year.
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+        year (int): The Grand Prix's year.
     """
     # Enable fastf1 cache
     fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
@@ -916,7 +933,7 @@ def laptime_distribution_plot(event: str, year: int=2024):
 
 
 @register_function
-def race_statistics(event: str, year: int):
+def race_statistics(event: str, year: int=2024):
     """
     Fetches and displays basic statistics about a Formula 1 race.
     
@@ -953,51 +970,3 @@ def race_statistics(event: str, year: int):
     
     except Exception as e:
         print(f"An error occurred: {e}")
-
-
-
-
-# @register_function
-# def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: str, lap:int, year: int=2024):
-#     """
-#     Compares the telemetry of a specific metric (e.g., 'speed', 'gas', 'throttle', 'gear') from a list of drivers.
-    
-#     Parameters:
-#         year (int): The Grand Prix's year.
-#         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
-#         session_type (str): The type of session (e.g., 'race', 'qualifying').
-#         drivers_abbrs (list): The names of the drivers to compare.
-#         metric (str): The metric to compare (e.g., 'speed', 'gas').
-#         lap (int): The specific lap of the session.
-#     """
-
-#     # Enable fastf1 cache
-#     fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
-
-#     session = fastf1.get_session(year, event, session_type)  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
-#     session.load()
-
-#     # Create dictionaries for laps and telemetry data.
-#     drivers = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap) for abbr in drivers_abbrs}
-#     telemetry_drivers = {abbr: drivers[abbr].get_telemetry() for abbr in drivers_abbrs}
-
-#     # Find relevant names based on existing telemetry DataFrame columns
-#     possible_metrics = ['Date', 'SessionTime', 'DriverAhead', 'DistanceToDriverAhead', 'Time',
-#                         'RPM', 'Speed', 'nGear', 'Throttle', 'Brake', 'DRS', 'Source',
-#                         'Distance', 'RelativeDistance', 'Status', 'X', 'Y', 'Z'] # easier than accessing random driver and then telemetry -> maybe can improve
-   
-#     metric = get_most_similar_word(metric, possible_metrics)
-
-#     # Create a matplotlib figure
-#     fig, ax = plt.subplots(figsize=(12, 6))
-
-#     for abbr, telemetry_driver in telemetry_drivers.items():
-#         ax.plot(telemetry_driver['Distance'], telemetry_driver[metric], label=abbr, color=DRIVER_COLORS[abbr])
-
-#     # Adding labels and legend
-#     ax.set_xlabel('Distance (m)')
-#     ax.set_ylabel(f'{metric} Input')
-#     ax.set_title(f'{metric} Comparison Between Drivers {drivers_abbrs} | Lap {lap} | {event}')
-#     ax.legend()
-    
-#     return fig
