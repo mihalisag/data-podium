@@ -23,6 +23,9 @@ from typing import Callable, Dict, Any, List
 # Only show important warnings
 fastf1.set_log_level('WARNING')
 
+# Enable fastf1 cache
+fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
+
 # A dictionary to store registered functions
 functions_registry: Dict[str, Dict[str, Any]] = {}
 
@@ -248,7 +251,8 @@ def get_fastest_lap_time_result(event: str):
 
     fastest_lap = session.laps.pick_fastest()
 
-    driver = fastest_lap.Driver
+    # Convert to full name
+    driver = fastf1.plotting.get_driver_name(fastest_lap.Driver, session)
     lap_num = int(fastest_lap.LapNumber)
     lap_time = format_timedelta(fastest_lap.LapTime)
     
@@ -320,7 +324,7 @@ def get_season_podiums():
 
     return fig
 
-
+# Might need to update with calling session.results or something
 @register_function
 def get_race_results(event: str, year: int=2024) -> pd.DataFrame:
     """
@@ -346,15 +350,14 @@ def get_race_results(event: str, year: int=2024) -> pd.DataFrame:
     return results_df
 
 @register_function
-def get_winner(event: str) -> str:
+def get_winner(event: str, year: int=2024) -> str:
     """
     Find the winner of a specific Grand Prix or race.
     
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+        year (int): The Grand Prix's year.
     """
-    # Enable fastf1 cache
-    fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
     # Retrieve the correct event name from fastf1
     event_name = fastf1.get_event(2024, event)['EventName']
@@ -365,26 +368,31 @@ def get_winner(event: str) -> str:
     # Identify the winner (driver with ClassifiedPosition == '1')
     winner = race_results_df.loc[race_results_df['ClassifiedPosition'] == '1', 'Driver'].iloc[0]
 
-    return f"Driver {winner} won the {event_name}"
+    # Get full name
+    session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
+    session.load()
+    winner = fastf1.plotting.get_driver_name(winner, session)
+
+    return f"Driver {winner} won the {year} {event_name}"
 
 
 # # Old implementation
 # @register_function
-# def get_positions_during_race(event: str, drivers_abbrs: list=[]):
+# def get_positions_during_race(event: str, drivers_list: list=[]):
 #     """
 #     Show positions of drivers throughout a race.
     
 #     Parameters:
 #         event (str): The specific Grand Prix or event.
-#         drivers_abbrs (list): The names of the drivers.
+#         drivers_list (list): The names of the drivers.
 #     """
 #     pos_df = pd.read_csv("data/gps_2024_season_laps.csv")
 #     pos_df = pos_df[['Driver', 'LapNumber', 'Stint', 'Position', 'EventName']]
 #     pos_df = pos_df[pos_df['EventName'] == event]
 
-#     if drivers_abbrs:
+#     if drivers_list:
 #         # Filter DataFrame for specific drivers
-#         pos_df = pos_df[pos_df['Driver'].isin(drivers_abbrs)]
+#         pos_df = pos_df[pos_df['Driver'].isin(drivers_list)]
 
 #     # Create a matplotlib figure
 #     fig, ax = plt.subplots(figsize=(10, 6))
@@ -413,9 +421,6 @@ def get_positions_during_race(event: str, year: int=2024):
         year (int): The Grand Prix's year.
     """
 
-    # Enable fastf1 cache
-    fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
-
     session = fastf1.get_session(year, event, 'R')
     session.load(telemetry=False, weather=False)
 
@@ -439,7 +444,7 @@ def get_positions_during_race(event: str, year: int=2024):
     ax.set_yticks([1, 5, 10, 15, 20])
     ax.set_xlabel('Lap')
     ax.set_ylabel('Position')
-    ax.set_title(f'Position vs Lap for Different Drivers | {event}')
+    ax.set_title(f'Position vs Lap for Different Drivers | {year} {event}')
     ax.legend(title='Driver')
 
     return fig
@@ -487,29 +492,35 @@ def get_drs_zones(car_data):
 
         # workaround
         drs_zones = [[zone[0], zone[-1]] for zone in drs_zones if len(zone) >= 2]
+
+        # Merge zones based on proximity
+        merged_zones = []
+        proximity_threshold = 200 # might need to adjust it better
+        for zone in drs_zones:
+            if not merged_zones or zone[0] - merged_zones[-1][-1] > proximity_threshold:
+                merged_zones.append(zone)
+            else:
+                merged_zones[-1][-1] = zone[-1]  # Extend the last merged zone
     else:
         return []
 
-    return drs_zones
+    return merged_zones
 
 
 # Expand for multiple laps (of same driver) ?
 @register_function
-def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: str, lap:int, year: int=2024):
+def compare_metric(event: str, session_type: str, drivers_list: list, metric: str, lap:int, year: int=2024):
     """
     Compares the telemetry of a specific metric (e.g., 'speed', 'gas', 'throttle', 'gear') from a list of drivers.
     
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         session_type (str): The type of session (e.g., 'race', 'qualifying').
-        drivers_abbrs (list): The names of the drivers to compare.
+        drivers_list (list): The names of the drivers to compare.
         metric (str): The metric to compare (e.g., 'speed', 'gas').
         lap (int): The specific lap of the session.
         year (int): The Grand Prix's year.
     """
-
-    # Enable fastf1 cache
-    fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
     # Specific plottting style
     fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False, color_scheme='fastf1')
@@ -517,9 +528,12 @@ def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: s
     session = fastf1.get_session(year, event, session_type)  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
     session.load()
 
+    # Make sure the driver names are abbreviations
+    drivers_list = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers_list]
+
     # Create dictionaries for laps and telemetry data.
-    drivers = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap) for abbr in drivers_abbrs}
-    telemetry_drivers = {abbr: drivers[abbr].get_telemetry() for abbr in drivers_abbrs}
+    drivers = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap) for abbr in drivers_list}
+    telemetry_drivers = {abbr: drivers[abbr].get_telemetry() for abbr in drivers_list}
 
     # Find relevant names based on existing telemetry DataFrame columns
     possible_metrics = ['Date', 'SessionTime', 'DriverAhead', 'DistanceToDriverAhead', 'Time',
@@ -535,7 +549,7 @@ def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: s
     for abbr, telemetry_driver in telemetry_drivers.items():
         ax.plot(telemetry_driver['Distance'], telemetry_driver[metric], label=abbr, color=DRIVER_COLORS[abbr])
 
-    car_data_drivers = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap).get_car_data().add_distance() for abbr in drivers_abbrs}
+    car_data_drivers = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap).get_car_data().add_distance() for abbr in drivers_list}
     
     # random driver needed for the plots
     random_data = list(car_data_drivers.values())[0]
@@ -544,9 +558,9 @@ def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: s
 
     # Draw vertical dotted lines at each corner that range from slightly below the
     # minimum speed to slightly above the maximum speed.
-    v_min = random_data['Speed'].min()
-    v_max = random_data['Speed'].max()
-    ax.vlines(x=circuit_info.corners['Distance'], ymin=v_min-20, ymax=v_max+20,
+    v_min = random_data[metric].min()
+    v_max = random_data[metric].max()
+    ax.vlines(x=circuit_info.corners['Distance'], ymin=0.9*v_min, ymax=1.05*v_max,
             linestyles='dotted', colors='grey')
 
     # Plot the corner number just below each vertical line.
@@ -554,12 +568,12 @@ def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: s
     # complicated approach would be necessary to reliably prevent this.
     for _, corner in circuit_info.corners.iterrows():
         txt = f"{corner['Number']}{corner['Letter']}"
-        ax.text(corner['Distance'], v_min-30, txt,
+        ax.text(corner['Distance'], 0.8*v_min, txt,
                 va='center_baseline', ha='center', size='small')
 
 
     # Find DRS zones for each driver and plot box with their color
-    for abbr in drivers_abbrs:
+    for abbr in drivers_list:
 
         # Load car data for specific driver
         car_data = car_data_drivers[abbr]
@@ -574,11 +588,36 @@ def compare_metric(event: str, session_type: str, drivers_abbrs: list, metric: s
 
     # Adding labels and legend
     ax.set_xlabel('Distance (m)')
-    ax.set_ylabel(f'{metric} Input')
-    ax.set_title(f'{metric} Comparison Between Drivers {drivers_abbrs} | Lap {lap} | {event}')
+    ax.set_ylabel(f'{metric}')
+    ax.set_title(f'{metric} Comparison Between Drivers | Lap {lap} | {year} {event}')
     ax.legend()
     
     return fig
+
+
+@register_function
+def compare_multiple_metrics(event: str, session_type: str, drivers: list, metrics: list, laps: list, year: int = 2024):
+    """
+    Compares the telemetry of multiple metrics (e.g., 'speed', 'gas', 'throttle', 'gear') across multiple laps and drivers.
+    
+    Parameters:
+        event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+        session_type (str): The type of session (e.g., 'race', 'qualifying').
+        drivers (list): A list of driver abbreviations to compare.
+        metrics (list): A list of metrics to compare (e.g., 'speed', 'gas').
+        laps (list): A list of laps to analyze.
+        year (int): The Grand Prix's year. Default is 2024.
+    """
+    figures = []
+
+    for metric in metrics:
+        for lap in laps:
+            fig = compare_metric(event=event, session_type=session_type, drivers_list=drivers, 
+                                 metric=metric, lap=lap, year=year)
+            figures.append(fig)
+
+    return figures
+
 
 
 # Improve naming
@@ -590,9 +629,6 @@ def fastest_driver_freq_plot(year: int=2024):
     Parameters:
         year (int): The season's year. Defaults to 2024.
     """
-
-    # Enable fastf1 cache
-    fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
     schedule = get_schedule_until_now(2024)
     events = list(schedule['EventName'])
@@ -631,7 +667,8 @@ def fastest_driver_freq_plot(year: int=2024):
     return fig
 
 
-
+# NEED TO IMPLEMENT DRIVER -> ABBR function like other ones
+# Also better color
 # Extend this by:
 #  - Having specific color for each driver (need to think for global solution, that is other plots)
 #  - Making it for multiple teams (pairs of drivers) (only for the second plot might be problematic)
@@ -643,9 +680,6 @@ def compare_quali_season(drivers_list: list):
     Parameters:
         drivers_list (list): A list of driver names or abbreviations to compare.
     """
-
-    # Enable fastf1 cache
-    fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
     # Load and preprocess the data
     quali_df = pd.read_csv('data/gps_2024_season_quali.csv')
@@ -729,17 +763,15 @@ def compare_quali_season(drivers_list: list):
     return [fig1, fig2]
 
 @register_function
-def laptime_plot(event:str, drivers_abbrs: list, year: int=2024):
+def laptime_plot(event:str, drivers_list: list, year: int=2024):
     """
     Generates a line plot of the lap times of specified drivers in a specific Grand Prix.
     
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
-        drivers_abbrs (list): The names of the drivers to compare.
+        drivers_list (list): The names of the drivers to compare.
         year (int): The Grand Prix's year.
     """
-    # Enable fastf1 cache
-    fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
     # Enable Matplotlib patches for plotting timedelta values and load
     # FastF1's dark color scheme
@@ -751,13 +783,16 @@ def laptime_plot(event:str, drivers_abbrs: list, year: int=2024):
     session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
     session.load()
 
+    # Make sure the driver names are abbreviations
+    drivers_list = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers_list]
+
     # Retrieve the correct event name from fastf1
     event_name = session.session_info['Meeting']['Name']
 
     fig, ax = plt.subplots(figsize=(12, 8))
 
     # Loop over each driver abbreviation
-    for driver in drivers_abbrs:
+    for driver in drivers_list:
         driver_laps = session.laps.pick_drivers(driver).pick_quicklaps().reset_index()
 
         sns.lineplot(
@@ -770,22 +805,6 @@ def laptime_plot(event:str, drivers_abbrs: list, year: int=2024):
         linewidth=2,  # Adjust the thickness of the lines
         marker='o'
         )
-
-
-        # sns.scatterplot(
-        #     data=driver_laps,
-        #     x="LapNumber",
-        #     y="LapTime",
-        #     ax=ax,
-        #     # hue="Compound",
-        #     # palette=fastf1.plotting.get_compound_mapping(session=session),
-        #     s=80,
-        #     linewidth=0,
-        #     legend='auto',
-        #     label=driver,  # Label each driver's data for the legend
-        #     color=DRIVER_COLORS[driver]
-        # )
-
 
     ax.set_xlabel("Lap Number")
     ax.set_ylabel("Lap Time")
@@ -809,9 +828,6 @@ def get_qualifying_results(event: str):
     Parameters:
         event (str): Name of the Grand Prix.
     """
-
-    # Enable fastf1 cache
-    fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
     # Enable Matplotlib patches for plotting timedelta values
     fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False,
@@ -871,8 +887,6 @@ def laptime_distribution_plot(event: str, year: int=2024):
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         year (int): The Grand Prix's year.
     """
-    # Enable fastf1 cache
-    fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
     # Enable Matplotlib patches for plotting timedelta values and load FastF1's dark color scheme
     fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False, color_scheme=None)
@@ -932,6 +946,12 @@ def laptime_distribution_plot(event: str, year: int=2024):
     return fig
 
 
+# Could also print
+# - average lap time and best lap time - driver
+# - average number of pit stops
+# - ranking of drivers
+# - qualifying ranking of drivers
+# - which "round" it is of the schedule
 @register_function
 def race_statistics(event: str, year: int=2024):
     """
@@ -940,12 +960,7 @@ def race_statistics(event: str, year: int=2024):
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         year (int): The year of the race.
-
-    Returns:
-        None
     """
-    # Enable fastf1 cache
-    fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
     try:
         # Load the session
@@ -953,20 +968,22 @@ def race_statistics(event: str, year: int=2024):
         session.load()
         
         # General information
-        print(f"Race Name: {session.event.EventName}")
-        print(f"Track: {session.event.Location}")
-        print(f"Country: {session.event.Country}")
-        print(f"Date: {session.event.Date}")
-        
-        # Track information
-        print(f"Laps: {session.event.NumberOfLaps}")
-        print(f"Track Length: {session.event.TrackLength}")
-        
-        # Weather information
-        print(f"Weather: {session.weather_data['trackTemp'].iloc[0]:.1f}°C (track)")
-        print(f"Air Temp: {session.weather_data['airTemp'].iloc[0]:.1f}°C")
-        print(f"Humidity: {session.weather_data['humidity'].iloc[0]:.1f}%")
-        print(f"Wind Speed: {session.weather_data['windSpeed'].iloc[0]:.1f} km/h")
+        race_name = f"Race Name: {session.event.EventName}"
+        round_num = f"Round: {session.event.RoundNumber}"
+        track = f"Track: {session.event.Location}"
+        country = f"Country: {session.event.Country}"
+        date = f"Date: {session.event.Session5DateUtc}"
+        total_laps = f"Laps: {session.total_laps}"
+        weather = f"Weather: {session.weather_data['TrackTemp'].mean():.1f}°C (track)"
+        rainfall = (session.weather_data['Rainfall'] == True).any()*"There was rainfall during the race"
+        # winner = get_winner(event)
+        winner = fastf1.plotting.get_driver_name(get_winner(event), session)
+        fastest_lap = get_fastest_lap_time_print(event)
+
+        statistics_list = [race_name, round_num, track, country, date, total_laps, weather, rainfall, winner, fastest_lap]
+        # statistics_str = '\n'.join(statistics_list)
+
+        return statistics_list
     
     except Exception as e:
-        print(f"An error occurred: {e}")
+        return f"An error occurred: {e}"

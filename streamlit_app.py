@@ -101,7 +101,7 @@ if st.button("Get Answer"):
                     
                     # Handle different result types dynamically
                     if isinstance(result, str):  # If the result is text
-                        st.success(f"Answer: {result}")
+                        st.success(result)
                     elif isinstance(result, pd.DataFrame):  # If the result is a pandas DataFrame
                         df_height = (len(result) + 1) * 35 + 3 # workaround to avoid scrolling
                         st.dataframe(result, hide_index=True, height=df_height)  # Display the DataFrame
@@ -112,7 +112,8 @@ if st.button("Get Answer"):
                             first_item = result[0]
                             if isinstance(first_item, str):  # List of strings
                                 for idx, item in enumerate(result):
-                                    st.success(f"Answer {idx + 1}: {item}")
+                                    if len(item) >= 1:
+                                        st.write(f"{item}\n")
                             elif isinstance(first_item, pd.DataFrame):  # List of DataFrames
                                 for idx, item in enumerate(result):
                                     st.write(f"DataFrame {idx + 1}:")
