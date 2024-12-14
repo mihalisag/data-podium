@@ -269,7 +269,7 @@ def get_fastest_lap_time_print(event: str):
     """
 
     driver, lap_num, lap_time = get_fastest_lap_time_result(event)
-    sentence = f'Driver {driver} had the fastest lap time of {lap_time} at lap {lap_num}.'
+    sentence = f"{driver} had the fastest lap time of {lap_time} at lap {lap_num}."
 
     return sentence
 
@@ -373,7 +373,7 @@ def get_winner(event: str, year: int=2024) -> str:
     session.load()
     winner = fastf1.plotting.get_driver_name(winner, session)
 
-    return f"Driver {winner} won the {year} {event_name}"
+    return f"{winner} won the {year} {event_name}"
 
 
 # # Old implementation
@@ -877,7 +877,7 @@ def get_qualifying_results(event: str):
 
     return fig
 
-
+# Inspired by the fastf1 example function
 @register_function
 def laptime_distribution_plot(event: str, year: int=2024):
     """
@@ -977,7 +977,7 @@ def race_statistics(event: str, year: int=2024):
         weather = f"Weather: {session.weather_data['TrackTemp'].mean():.1f}°C (track)"
         rainfall = (session.weather_data['Rainfall'] == True).any()*"There was rainfall during the race"
         # winner = get_winner(event)
-        winner = fastf1.plotting.get_driver_name(get_winner(event), session)
+        winner = get_winner(event)
         fastest_lap = get_fastest_lap_time_print(event)
 
         statistics_list = [race_name, round_num, track, country, date, total_laps, weather, rainfall, winner, fastest_lap]
