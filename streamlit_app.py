@@ -1,14 +1,33 @@
 import os
-from dotenv import load_dotenv
 import json
 import re
 import streamlit as st
+from dotenv import load_dotenv
 
 import general_utils
 from general_utils import *
 
-from gpt4all import GPT4All
 from openai import OpenAI
+
+st.title("🏎️ F1 Assistant")
+st.write("Ask questions, and get answers powered by gpt-4o-mini.")
+
+grand_prix_by_year = {}
+YEARS = range(2018, 2025)
+
+for year in YEARS:
+    year_event_names = list(get_schedule_until_now(year)['EventName'])
+    grand_prix_by_year[year] = year_event_names
+
+# Year selection
+selected_year = st.selectbox("Select a Year:", YEARS)
+
+# Grand Prix selection based on selected year
+
+grand_prix_list = [*grand_prix_by_year[selected_year], 'Season']
+selected_gp = st.selectbox(f"Select a Grand Prix (or whole season):", grand_prix_list)
+
+# st.write(f"You selected: {selected_gp} from {selected_year}")
 
 
 # Load environment variables from the .env file
@@ -19,19 +38,37 @@ client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
 )
 
-# # Path to the downloaded model
-# # model_path = "/Users/mike/Library/Application Support/nomic.ai/GPT4All/airoboros-m-7b-3.1.2.Q4_0.gguf" # macos
-# model_path = "/home/michail/.local/share/nomic.ai/GPT4All/airoboros-m-7b-3.1.2.Q4_0.gguf" # linux
+# Set a default model
+if "openai_model" not in st.session_state:
+    st.session_state["openai_model"] = "gpt-4o-mini"
 
-# # Load the GPT4All model and create a persistent session
-# gpt_model = GPT4All(model_name=model_path)
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Display chat messages from history on app rerun
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
 
-functions = functions_registry
+if 'memory' not in st.session_state:
+    st.session_state['memory'] = {
+        "race_name": selected_gp,
+        "year": selected_year,
+        # "driver_names": []
+    }
 
-# Streamlit app setup
-st.title("F1 Assistant")
-st.write("Ask questions, and get answers powered by gpt-4o-mini.")
+# function_examples = {
+#     "get_winner": "Who won the 2023 Monaco Grand Prix?",
+#     "compare_metric": "Compare throttle input of Verstappen and Hamilton in the Spanish Grand Prix, laps 15, 16, 17.",
+#     "get_fastest_lap_time_result": "What was the fastest lap in the 2023 Silverstone GP?",
+# }
+
+# for func, example in function_examples.items():
+#     st.write(f"- {example}")
+
+
 
 prime_template = """
 As an AI assistant, analyze the user's input and select the most suitable function and parameters from the list of available functions below. Match the user's intent to the corresponding function and fill in its parameters using information extracted from the input. Structure your response as JSON.
@@ -43,12 +80,10 @@ Available functions:
 """
 
 
+functions = functions_registry
+
 # Convert functions to JSON-like text
 functions_text = json.dumps(functions, indent=2)
-
-# User input
-user_input = st.text_area("Enter your question here:")
-
 
 # Automatically create the function dispatcher
 function_dispatcher = {
@@ -58,50 +93,79 @@ function_dispatcher = {
 }
 
 
+if st.button('Overview'):
+    statistics = race_statistics(selected_gp, selected_year)
+
+    # Basic race statistics
+    for idx, item in enumerate(statistics):
+        if len(item) >= 1:
+            st.write(f"{item}\n")
+
+
+user_input = st.text_area("Enter your question here:")
+
+    
 if st.button("Get Answer"):
     if user_input:
-        # Generate the prompt dynamically
-        complete_prime = prime_template.format(user_input=user_input, functions_text=functions_text)
+        # st.write("Debug - Memory:", st.session_state['memory'])
+        # st.write("Debug - User Input:", user_input)
+        # st.write("Debug - Functions Text:", functions_text)
+
+        # st.write(prime_template)
+
+        # Generate the prompt
+        complete_prime = prime_template.format(
+            memory=json.dumps(st.session_state['memory'], indent=2),
+            user_input=user_input,
+            functions_text=functions_text
+        )
 
         # Call OpenAI API
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Use the desired model
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": complete_prime}
             ],
             max_tokens=512,
-            temperature=0  # Use deterministic responses for function parsing
+            temperature=0
         )
         
         # Extract response content
         response_content = response.choices[0].message.content
         
-        # Extract JSON substring using regex - we only want the JSON part
+        # Extract JSON response from model
         match = re.search(r"{.*}", response_content, re.DOTALL)
         if match:
-            response_json = match.group(0)  # Get the JSON part
-
+            response_json = match.group(0)
             try:
                 # Parse the JSON string into a dictionary
-                response_data = json.loads(response_json)  # Convert to dict
+                response_data = json.loads(response_json)
 
-                # # OPTIONAL
-                # # Display the JSON result in Streamlit
-                # st.json(response_data)
-                # st.write('works')
-                        
-                # Extract function name and parameters
+                # st.write(f"Response data: {response_data}")
+                
+                # # Update memory with model-provided memory
+                # st.session_state['memory'] = response_data.get("memory", st.session_state['memory'])
+
+                # Extract function and parameters
                 function_name = response_data["function"]
                 params = response_data["params"]
 
-                # Call the selected function dynamically
+                if 'event' in params:
+                    params['event'] = selected_gp
+
+                if 'year' in params:
+                    params['year'] = selected_year
+
+                # st.write(f"Parameters: {params}")
+
+                 # Call the selected function dynamically
                 if function_name in function_dispatcher:
                     result = function_dispatcher[function_name](**params)  # Pass params as kwargs
                     
                     # Handle different result types dynamically
                     if isinstance(result, str):  # If the result is text
-                        st.success(result)
+                        st.write(result)
                     elif isinstance(result, pd.DataFrame):  # If the result is a pandas DataFrame
                         df_height = (len(result) + 1) * 35 + 3 # workaround to avoid scrolling
                         st.dataframe(result, hide_index=True, height=df_height)  # Display the DataFrame
@@ -142,5 +206,28 @@ if st.button("Get Answer"):
                 st.write("### Raw Response:")
                 st.write(response)
 
-        else:
-            st.write("Could not extract valid JSON from the response.")
+
+
+
+# # Accept user input
+# if prompt := st.chat_input("What is up?"):
+#     # Add user message to chat history
+#     st.session_state.messages.append({"role": "user", "content": prompt})
+#     # Display user message in chat message container
+#     with st.chat_message("user"):
+#         st.markdown(prompt)
+
+#     # Display assistant response in chat message container
+#     with st.chat_message("assistant"):
+#         stream = client.chat.completions.create(
+#             model=st.session_state["openai_model"],
+#             messages=[
+#                 {"role": m["role"], "content": m["content"]}
+#                 for m in st.session_state.messages
+#             ],
+#             stream=True,
+#         )
+#         response = st.write_stream(stream)
+#     st.session_state.messages.append({"role": "assistant", "content": response})
+
+# st.write(st.session_state.messages)
