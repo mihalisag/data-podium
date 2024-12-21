@@ -1,8 +1,0 @@
-
-Available functions: 
-  grand_prix_statistics: 
-    description: This tool finds statistics of a grand prix 
-    params: 
-      action: The operation we want to perform on the data, such as "winner", "ranking", "find_fastest_lap_time", "find_qualifying_lap_time" etc 
-      filters: 
-        keyword: The winner of a grand prix
