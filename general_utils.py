@@ -8,6 +8,7 @@ import matplotlib.colors as mcolors
 import fastf1
 import fastf1.plotting
 from fastf1.core import Laps
+from fastf1.ergast import Ergast
 
 from timple.timedelta import strftimedelta
 
@@ -164,7 +165,11 @@ def get_schedule_until_now(year: int=2024):
     schedule = schedule[schedule['EventDate'] <= datetime.today()]
 
     # Do not need the preseason results
-    schedule = schedule[schedule['EventName'] != 'Pre-Season Testing']
+    schedule = schedule[~schedule['EventName'].str.startswith('Pre-Season')]
+
+    cols = ['RoundNumber', 'EventName', 'Country', 'Location', 'EventDate']
+
+    schedule = schedule[cols]
 
     return schedule
 
@@ -238,14 +243,13 @@ def get_reaction_time(event:str, speed: int=100):
     
 
 @register_function
-def get_fastest_lap_time_result(event: str):
+def get_fastest_lap_time_result(event: str, year: int=2024):
     """
     Finds the fastest lap time for a specific Grand Prix or event and returns relevant details.
 
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
     """
-    year = 2024
     session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
     session.load()
 
@@ -326,7 +330,7 @@ def get_season_podiums():
 
 # Might need to update with calling session.results or something
 @register_function
-def get_race_results(event: str, year: int=2024) -> pd.DataFrame:
+def get_race_results(event: str, year: int) -> pd.DataFrame:
     """
     Retrieves the race results for a specific Grand Prix.
 
@@ -349,8 +353,9 @@ def get_race_results(event: str, year: int=2024) -> pd.DataFrame:
 
     return results_df
 
+
 @register_function
-def get_winner(event: str, year: int=2024) -> str:
+def get_winner(event: str, year: int) -> str:
     """
     Find the winner of a specific Grand Prix or race.
     
@@ -360,10 +365,10 @@ def get_winner(event: str, year: int=2024) -> str:
     """
 
     # Retrieve the correct event name from fastf1
-    event_name = fastf1.get_event(2024, event)['EventName']
+    event_name = fastf1.get_event(year, event)['EventName']
 
     # Get race results using the modular function
-    race_results_df = get_race_results(event_name)
+    race_results_df = get_race_results(event_name, year)
 
     # Identify the winner (driver with ClassifiedPosition == '1')
     winner = race_results_df.loc[race_results_df['ClassifiedPosition'] == '1', 'Driver'].iloc[0]
@@ -371,6 +376,7 @@ def get_winner(event: str, year: int=2024) -> str:
     # Get full name
     session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race; can also use 'Q', 'FP1', 'FP2', 'FP3'
     session.load()
+
     winner = fastf1.plotting.get_driver_name(winner, session)
 
     return f"{winner} won the {year} {event_name}"
@@ -633,15 +639,15 @@ def fastest_driver_freq_plot(year: int=2024):
     schedule = get_schedule_until_now(2024)
     events = list(schedule['EventName'])
 
-    driver_list = []
+    drivers_list = []
 
     for event in events:
         driver, _, _ = get_fastest_lap_time_result(event)
 
-        driver_list.append(driver)
+        drivers_list.append(driver)
 
     # Create a frequency dictionary
-    fastest_driver_freq = dict(Counter(driver_list))
+    fastest_driver_freq = dict(Counter(drivers_list))
 
     fastest_driver_freq = pd.DataFrame(fastest_driver_freq.items(), columns=['Driver', 'Frequency'])
     fastest_driver_freq = fastest_driver_freq.sort_values(by='Frequency', ascending=False)
@@ -673,23 +679,33 @@ def fastest_driver_freq_plot(year: int=2024):
 #  - Having specific color for each driver (need to think for global solution, that is other plots)
 #  - Making it for multiple teams (pairs of drivers) (only for the second plot might be problematic)
 @register_function
-def compare_quali_season(drivers_list: list):
+def compare_quali_season(drivers_list: list, year: int=2024):
     """
     Compares the qualifying performance of pairs of drivers across a season.
 
     Parameters:
         drivers_list (list): A list of driver names or abbreviations to compare.
+        year (int): The season's year. Defaults to 2024.
     """
+    # It is random and might not contain driver -> need to fix
+    session = fastf1.get_session(year, 10, 'R')
+
+    # Make sure the driver names are abbreviations
+    drivers_list = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers_list]
 
     # Load and preprocess the data
-    quali_df = pd.read_csv('data/gps_2024_season_quali.csv')
+    quali_df = pd.read_csv(f'data/gps_{year}_season_quali.csv')
     quali_df = quali_df[['Abbreviation', 'Position', 'EventName']]
     quali_df = quali_df.rename(columns={'Abbreviation': 'Driver'})
     quali_df = quali_df[quali_df['Driver'].isin(drivers_list)]
+    quali_df = quali_df[~quali_df['EventName'].str.startswith('Pre-Season')]
 
-    # Plot with specific DRIVER_COLORS
-    bar_colors = {driver: DRIVER_COLORS[driver] for driver in drivers_list}
-    bar_colors[drivers_list[1]] = lighten_color(bar_colors[drivers_list[1]], amount=0.2)
+    # # Plot with specific DRIVER_COLORS
+    # bar_colors = {driver: DRIVER_COLORS[driver] for driver in drivers_list}
+    # bar_colors[drivers_list[1]] = lighten_color(bar_colors[drivers_list[1]], amount=0.2)
+
+    # Plot based on driver colors
+    bar_colors = {driver : fastf1.plotting.get_driver_color(driver, session) for driver in drivers_list}
 
     # Plot 1: Line plot for qualifying positions
     fig1, ax1 = plt.subplots(figsize=(10, 6))
@@ -702,7 +718,7 @@ def compare_quali_season(drivers_list: list):
     # Adding labels and legend
     ax1.set_xlabel('Grand Prix')
     ax1.set_ylabel('Position')
-    ax1.set_title('Qualifying Position vs Event for Different Drivers')
+    ax1.set_title(f'Qualifying Position vs Event of Different Drivers for {year}')
     ax1.legend(title='Driver')
     ax1.invert_yaxis()  # Reverse y-axis so 1st position is at the top
     ax1.set_xticks(range(len(short_event)))
@@ -738,7 +754,7 @@ def compare_quali_season(drivers_list: list):
 
     # Add labels and title
     ax2.set_xlabel('Count')
-    ax2.set_title('Driver Performance: Left and Right Counts')
+    ax2.set_title(f'{year} Qualifying Performance: Outqualified Counts')
 
     # Add legend
     ax2.legend()
@@ -820,6 +836,7 @@ def laptime_plot(event:str, drivers_list: list, year: int=2024):
     return fig
 
 # Might need to also check the classified grid starting position if needed?
+# Can also add a +0.xxx s in the bars to show the difference?
 @register_function
 def get_qualifying_results(event: str):
     """
@@ -952,6 +969,7 @@ def laptime_distribution_plot(event: str, year: int=2024):
 # - ranking of drivers
 # - qualifying ranking of drivers
 # - which "round" it is of the schedule
+# - have an option for whole season
 @register_function
 def race_statistics(event: str, year: int=2024):
     """
@@ -977,13 +995,60 @@ def race_statistics(event: str, year: int=2024):
         weather = f"Weather: {session.weather_data['TrackTemp'].mean():.1f}°C (track)"
         rainfall = (session.weather_data['Rainfall'] == True).any()*"There was rainfall during the race"
         # winner = get_winner(event)
-        winner = get_winner(event)
-        fastest_lap = get_fastest_lap_time_print(event)
+        # fastest_lap = get_fastest_lap_time_print(event)
 
-        statistics_list = [race_name, round_num, track, country, date, total_laps, weather, rainfall, winner, fastest_lap]
+        statistics_list = [race_name, round_num, track, country, date, total_laps, weather, rainfall] #, winner, fastest_lap]
         # statistics_str = '\n'.join(statistics_list)
 
         return statistics_list
     
     except Exception as e:
         return f"An error occurred: {e}"
+    
+# temporary before I make another one to make it look nicer
+@register_function
+def get_pit_stops(event: str, year: int=2024):
+    """
+        Returns the pit stops of a race.
+
+        Parameters:
+            event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
+            year (int): The season's year. Defaults to 2024.
+
+    """
+    
+    session = fastf1.get_session(year, event, 'R')
+    session.load()
+
+    # Create an instance of the Ergast class
+    ergast = Ergast()
+
+    round_num = session.event.RoundNumber
+
+    pit_df = ergast.get_pit_stops(season=year, round=round_num).content[0]
+
+    driver_info_df = ergast.get_driver_info(season=year, round=round_num)
+    pit_df = ergast.get_pit_stops(season=year, round=round_num).content[0]
+
+    # Create driver abbreviations column
+    pit_df['driverAbbr'] = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in pit_df['driverId']]
+
+    # Map abbreviations to number
+    abbr_to_num = dict(zip(driver_info_df['driverCode'], driver_info_df['driverNumber']))
+
+    # DataFrame column
+    pit_df['driverNum'] = pit_df['driverAbbr'].map(abbr_to_num)
+
+    # Move to first column
+    pit_df.insert(0, 'driverNum', pit_df.pop('driverNum'))
+
+    # Drop columns (not needed for now)
+    pit_df = pit_df.drop(columns=['driverAbbr', 'driverId', 'duration', 'time'])
+
+    # Group by driverNum and aggregate stop and lap columns as lists
+    stops_by_driver = pit_df.groupby('driverNum').agg({'lap': list}).reset_index()
+
+    # check this to understand more
+    # stops_by_driver = stops_by_driver.drop(columns=['stop'])
+
+    return stops_by_driver
