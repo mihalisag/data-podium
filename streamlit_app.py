@@ -23,24 +23,36 @@ for year in YEARS:
 selected_year = st.selectbox("Select a Year:", YEARS)
 
 # Grand Prix selection based on selected year
-
 grand_prix_list = [*grand_prix_by_year[selected_year], 'Season']
 selected_gp = st.selectbox(f"Select a Grand Prix (or whole season):", grand_prix_list)
 
 # st.write(f"You selected: {selected_gp} from {selected_year}")
 
-
+# # -- OPENAI --
 # Load environment variables from the .env file
-load_dotenv()
+# load_dotenv()
 
-# Initialize OpenAI client with the API key from environment variables
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
+# # Initialize OpenAI client with the API key from environment variables
+# client = OpenAI(
+#     api_key=os.getenv("OPENAI_API_KEY"),
+# )
+
+# MODEL = "gpt-4o-mini"
+
+
+# -- GROQ --
+load_dotenv('groq.env')
+
+client =OpenAI(
+    base_url="https://api.groq.com/openai/v1",
+    api_key=os.getenv("GROQ_API_KEY")
 )
+
+MODEL = "llama3-8b-8192"
 
 # Set a default model
 if "openai_model" not in st.session_state:
-    st.session_state["openai_model"] = "gpt-4o-mini"
+    st.session_state["openai_model"] = MODEL
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -68,10 +80,30 @@ if 'memory' not in st.session_state:
 # for func, example in function_examples.items():
 #     st.write(f"- {example}")
 
+# # old (working with openai)
+# prime_template = """
+# As an AI assistant, analyze the user's input and select the most suitable function and parameters from the list of available functions below. Match the user's intent to the corresponding function and fill in its parameters using information extracted from the input. Structure your response as JSON.
 
+# Input: {user_input}
+
+# Available functions:
+# {functions_text}
+# """
+
+# prime_template = """
+# As an AI assistant, analyze the user's input and select the most suitable function and parameters from the list of available functions below. Match the user's intent to the corresponding function and fill in its parameters using information extracted from the input. Please structure your response **only** as JSON. Do not explain your decision, just output the JSON.
+
+# Input: {user_input}
+
+# Available functions:
+# {functions_text}
+# """
 
 prime_template = """
-As an AI assistant, analyze the user's input and select the most suitable function and parameters from the list of available functions below. Match the user's intent to the corresponding function and fill in its parameters using information extracted from the input. Structure your response as JSON.
+As an AI assistant, analyze the user's input and select the most suitable function and parameters from the list of available functions below. Match the user's intent to the corresponding function and fill in its parameters using information extracted from the input and the provided memory. Please structure your response **only** as JSON. Do not explain your decision, just output the JSON.
+
+Memory:
+{memory}
 
 Input: {user_input}
 
@@ -95,11 +127,12 @@ function_dispatcher = {
 
 if st.button('Overview'):
     statistics = race_statistics(selected_gp, selected_year)
+    st.write(statistics)
 
-    # Basic race statistics
-    for idx, item in enumerate(statistics):
-        if len(item) >= 1:
-            st.write(f"{item}\n")
+    # # Basic race statistics
+    # for idx, item in enumerate(statistics):
+    #     if len(item) >= 1:
+    #         st.write(f"{item}\n")
 
 
 user_input = st.text_area("Enter your question here:")
@@ -120,14 +153,16 @@ if st.button("Get Answer"):
             functions_text=functions_text
         )
 
+        # st.write(f"Complete prime: {complete_prime}")
+
         # Call OpenAI API
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": complete_prime}
             ],
-            max_tokens=512,
+            max_tokens=256,
             temperature=0
         )
         
@@ -205,29 +240,3 @@ if st.button("Get Answer"):
                 st.error("Failed to parse response.")
                 st.write("### Raw Response:")
                 st.write(response)
-
-
-
-
-# # Accept user input
-# if prompt := st.chat_input("What is up?"):
-#     # Add user message to chat history
-#     st.session_state.messages.append({"role": "user", "content": prompt})
-#     # Display user message in chat message container
-#     with st.chat_message("user"):
-#         st.markdown(prompt)
-
-#     # Display assistant response in chat message container
-#     with st.chat_message("assistant"):
-#         stream = client.chat.completions.create(
-#             model=st.session_state["openai_model"],
-#             messages=[
-#                 {"role": m["role"], "content": m["content"]}
-#                 for m in st.session_state.messages
-#             ],
-#             stream=True,
-#         )
-#         response = st.write_stream(stream)
-#     st.session_state.messages.append({"role": "assistant", "content": response})
-
-# st.write(st.session_state.messages)
