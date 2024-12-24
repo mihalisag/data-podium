@@ -10,7 +10,7 @@ from general_utils import *
 from openai import OpenAI
 
 st.title("🏎️ F1 Assistant")
-st.write("Ask questions, and get answers powered by gpt-4o-mini.")
+st.write("Ask questions, and get answers powered by an LLM.")
 
 grand_prix_by_year = {}
 YEARS = range(2018, 2025)
@@ -19,12 +19,18 @@ for year in YEARS:
     year_event_names = list(get_schedule_until_now(year)['EventName'])
     grand_prix_by_year[year] = year_event_names
 
-# Year selection
-selected_year = st.selectbox("Select a Year:", YEARS)
 
-# Grand Prix selection based on selected year
-grand_prix_list = [*grand_prix_by_year[selected_year], 'Season']
-selected_gp = st.selectbox(f"Select a Grand Prix (or whole season):", grand_prix_list)
+# Create two columns
+col1, col2 = st.columns(2)
+
+# Year selection in the first column
+with col1:
+    selected_year = st.selectbox("Select a Year:", YEARS)
+
+# Grand Prix (or season) selection in the second column
+with col2:
+    grand_prix_list = [*grand_prix_by_year[selected_year], 'Season']
+    selected_gp = st.selectbox(f"Select a Grand Prix (or whole season):", grand_prix_list)
 
 # st.write(f"You selected: {selected_gp} from {selected_year}")
 
@@ -48,7 +54,7 @@ client =OpenAI(
     api_key=os.getenv("GROQ_API_KEY")
 )
 
-MODEL = "llama3-8b-8192"
+MODEL = "llama3-70b-8192"
 
 # Set a default model
 if "openai_model" not in st.session_state:
@@ -192,7 +198,7 @@ if st.button("Get Answer"):
                 if 'year' in params:
                     params['year'] = selected_year
 
-                # st.write(f"Parameters: {params}")
+                st.write(f"Function: {function_name} | Parameters: {params}")
 
                  # Call the selected function dynamically
                 if function_name in function_dispatcher:
@@ -206,6 +212,8 @@ if st.button("Get Answer"):
                         st.dataframe(result, hide_index=True, height=df_height)  # Display the DataFrame
                     elif isinstance(result, plt.Figure):  # If the result is a Matplotlib figure
                         st.pyplot(result)  # Render the Matplotlib figure
+                    elif isinstance(result, go.Figure): # If the result is a Plotly figure
+                        st.plotly_chart(result) # Render the Plotly figure
                     elif isinstance(result, list):  # If the result is a list
                         if len(result) > 0:  # Ensure the list is not empty
                             first_item = result[0]
@@ -220,8 +228,12 @@ if st.button("Get Answer"):
                                     st.dataframe(item, hide_index=True, height=df_height)  # Display the DataFrame
                             elif isinstance(first_item, plt.Figure):  # List of Matplotlib figures
                                 for idx, item in enumerate(result):
-                                    st.write(f"Figure {idx + 1}:")
+                                    # st.write(f"Figure {idx + 1}:")
                                     st.pyplot(item)
+                            elif isinstance(first_item, go.Figure):  # List of Plotly figures
+                                for idx, item in enumerate(result):
+                                    # st.write(f"Figure {idx + 1}:")
+                                    st.plotly_chart(item)
                             else:
                                 st.warning("List contains unsupported item types.")
                                 for idx, item in enumerate(result):

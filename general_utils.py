@@ -5,6 +5,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
+import plotly.graph_objects as go
+
 import fastf1
 import fastf1.plotting
 from fastf1.core import Laps
@@ -107,7 +109,7 @@ def register_function(func: Callable) -> Callable:
 #  'Alpine': '#ff87bc'}
 
 
-def lighten_color(color, amount=0.5):
+def lighten_color(color, amount=0.35):
     """
     Lightens a given color by blending it with white.
     
@@ -177,16 +179,18 @@ def get_schedule_until_now(year: int=2024):
 
 
 @register_function
-def get_reaction_time(event:str, speed: int=100):
+def get_reaction_time(event:str, speed: int, year: int=2024):
     """
     Retrieves the reaction time of drivers to reach a specific speed at the start of the race.
 
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         speed (int): The target speed (in km/h) to reach at the race start.
+        year (int): The Grand Prix's year.
+
     """
 
-    year = 2024
+    if speed == None: speed = 100
 
     session = fastf1.get_session(year, event, 'R')  
     session.load()
@@ -217,32 +221,39 @@ def get_reaction_time(event:str, speed: int=100):
     sorted_drivers = reaction_df['Driver']
     sorted_reaction_times = reaction_df['ReactionTime']
 
-    # Create a matplotlib figure
-    fig, ax = plt.subplots(figsize=(10, 6))
-
     # Get driver colors of the session
     driver_colors = get_driver_colors(session=session, year=year)
     bar_colors = [driver_colors[driver] for driver in sorted_drivers]
 
-    # Plot the bar chart with the custom colors
-    ax.bar(sorted_drivers, sorted_reaction_times, color=bar_colors)
-    # Add labels and title
-    ax.set_xlabel('Drivers')
-    ax.set_ylabel('Reaction time')
+    # Create a Plotly bar chart
+    fig = go.Figure()
 
-    # Set the y-axis limits to focus on the range of reaction times
-    min_reaction = min(sorted_reaction_times)
-    max_reaction = max(sorted_reaction_times)
+    fig.add_trace(go.Bar(
+        x=sorted_drivers,
+        y=sorted_reaction_times,
+        marker=dict(color=bar_colors),
+        # text=sorted_reaction_times,  # Display reaction times on hover
+        # textposition='outside',  # Show text above bars
+        # textfont=dict(size=12)  # Font size for the text
+    ))
 
-    # Add a small margin around the reaction times
-    y_margin = (max_reaction - min_reaction) * 0.7  # 10% of the range
-
-    # Apply the y-axis limits
-    ax.set_ylim(min_reaction - y_margin, max_reaction + y_margin)
-
-    ax.set_title(f'Reaction time of drivers to {speed} km/h')
+    # Update layout
+    fig.update_layout(
+        title=f'Reaction Time of Drivers to {speed} km/h',
+        xaxis_title='Drivers',
+        yaxis_title='Reaction Time (s)',
+        yaxis=dict(
+            range=[
+                min(sorted_reaction_times) - (max(sorted_reaction_times) - min(sorted_reaction_times)) * 0.1,
+                max(sorted_reaction_times) + (max(sorted_reaction_times) - min(sorted_reaction_times)) * 0.1
+            ]
+        ),  # Add margin to y-axis limits
+        height=500,
+        width=800
+    )
 
     return fig
+
     
 
 @register_function
@@ -307,9 +318,9 @@ def get_driver_colors(session=None, year: int=2024):
 
 # FIX: the driver colors change by year, check plotting color function
 @register_function
-def get_season_podiums(year: int=2024):
+def get_season_podiums(year: int = 2024):
     """
-    Retrieves the podium finishes for all races in a season.
+    Retrieves the podium finishes for all races in a season and visualizes them using Plotly.
 
     Parameters:
         year (int): The season's year.
@@ -322,39 +333,49 @@ def get_season_podiums(year: int=2024):
     )
 
     results_df = results_df[['Driver', 'ClassifiedPosition', 'Status']]
-    results_df = results_df.dropna() # problem with Las Vegas Grand Prix?
+    results_df = results_df.dropna()  # Handle potential missing data
     
     season_podiums_df = results_df.copy()
 
-    # Take only numberic positions
+    # Filter numeric positions only
     season_podiums_df = season_podiums_df[season_podiums_df['ClassifiedPosition'].apply(lambda x: x.isnumeric())]
     
     # Convert to integer
     season_podiums_df['ClassifiedPosition'] = season_podiums_df['ClassifiedPosition'].astype(int)
 
-    # Take only podiums
-    season_podiums_df = season_podiums_df[season_podiums_df['ClassifiedPosition']<= 3]
+    # Filter podium positions
+    season_podiums_df = season_podiums_df[season_podiums_df['ClassifiedPosition'] <= 3]
 
-    # Take value counts of podiums and convert to DataFrame
+    # Count podiums per driver and convert to DataFrame
     season_podiums_df = pd.DataFrame(season_podiums_df['Driver'].value_counts()).reset_index()
+    season_podiums_df.columns = ['Driver', 'Podium Count']
 
     # Get driver colors of the session
     driver_colors = get_driver_colors(year=year)
-    bar_colors = [driver_colors[driver] for driver in season_podiums_df["Driver"]]
+    bar_colors = [driver_colors.get(driver, 'gray') for driver in season_podiums_df["Driver"]]
 
-    # Create a matplotlib figure and axis
-    fig, ax = plt.subplots(figsize=(8, 5))  # Optional: Set figure size
+    # Create a Plotly bar chart
+    fig = go.Figure()
 
-    # Plot the bar chart on the ax object
-    ax.bar(season_podiums_df["Driver"], season_podiums_df["count"], color=bar_colors)
+    fig.add_trace(go.Bar(
+        x=season_podiums_df["Driver"],
+        y=season_podiums_df["Podium Count"],
+        marker=dict(color=bar_colors),
+        # text=season_podiums_df["Podium Count"],  # Show the count on hover
+        # textposition='outside',  # Position text above bars
+        # textfont=dict(size=12)  # Font size of the text
+    ))
 
-    # Set labels and title using ax
-    ax.set_xlabel("Driver", fontsize=12)
-    ax.set_ylabel("Podium count", fontsize=12)
-    ax.set_title("Podiums for each driver", fontsize=14)
-
-    # Set y-axis ticks to increment by one (from 0 to max count)
-    ax.set_yticks(range(0, max(season_podiums_df["count"]) + 1, 1))  # Start at 0, go to max count, step by 1
+    # Update layout
+    fig.update_layout(
+        title="Podiums for Each Driver | {year} championship",
+        xaxis_title="Driver",
+        yaxis_title="Podium Count",
+        xaxis=dict(tickangle=45),
+        yaxis=dict(tickmode="linear", dtick=1),  # Increment y-axis by 1
+        height=500,
+        width=800
+    )
 
     return fig
 
@@ -450,46 +471,49 @@ def get_winner(event: str, year: int) -> str:
 @register_function
 def get_positions_during_race(event: str, year: int=2024):
     """
-    Show positions of drivers throughout a race.
+    Show positions of drivers throughout a race using Plotly.
 
     Parameters:
-        event (str): The specific Grand Prix or event.
+        event (str): The specific Grand Prix.
         year (int): The Grand Prix's year.
     """
 
     session = fastf1.get_session(year, event, 'R')
     session.load(telemetry=False, weather=False)
 
-    # Create a matplotlib figure
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # Create a Plotly figure
+    fig = go.Figure()
 
     for drv in session.drivers:
         drv_laps = session.laps.pick_drivers(drv)
         abb = drv_laps['Driver'].iloc[0]
 
-        style = fastf1.plotting.get_driver_style(identifier=abb,
-                                                style=['color', 'linestyle'],
-                                                session=session)
+        style = fastf1.plotting.get_driver_style(identifier=abb, style=['color', 'linestyle'], session=session)
+        color = style['color']
+        linestyle = style['linestyle'].replace('ed', '') # dashed to dash because of plotly :)
 
-        ax.plot(drv_laps['LapNumber'], drv_laps['Position'],
-                label=abb, **style)
-    
-    # Finalize the plot by setting y-limits that invert the y-axis so that position
-    # one is at the top, set custom tick positions and axis labels.
-    ax.set_ylim([20.5, 0.5])
-    ax.set_yticks([1, 5, 10, 15, 20])
-    ax.set_xlabel('Lap')
-    ax.set_ylabel('Position')
-    ax.set_title(f'Position vs Lap for Different Drivers | {year} {event}')
-    ax.legend(title='Driver')
+        fig.add_trace(go.Scatter(x=drv_laps['LapNumber'], 
+                                 y=drv_laps['Position'], 
+                                 mode='lines',
+                                 name=abb, 
+                                 line=dict(color=color, dash=linestyle)))
+
+
+    # Finalize the plot by inverting the y-axis and customizing labels and title
+    fig.update_layout(title=f'Position vs Lap | {year} {event}',
+                      xaxis_title='Lap',
+                      yaxis_title='Position',
+                      yaxis=dict(autorange='reversed', tickvals=[1, 5, 10, 15, 20]),
+                      legend_title='Driver')
 
     return fig
 
 
+
 def get_drs_zones(car_data):
-    '''
+    """
         Locates DRS for a specific track
-    '''
+    """
 
     # Extract distances for specific DRS zones
     drs_distances = car_data[car_data['DRS'].isin([10, 12, 14])]['Distance']
@@ -544,121 +568,102 @@ def get_drs_zones(car_data):
 
 
 @register_function
-def compare_multiple_metrics(event: str, session_type: str, drivers: list, metrics: list, laps: list, year: int = 2024):
+def compare_telemetry(event: str, session_type: str, drivers: list, metrics: list, laps: list, year: int=2024):
     """
-    Compares the telemetry of multiple metrics (e.g., 'speed', 'gas', 'throttle', 'gear') across multiple laps and drivers.
-    Use this function when there are multiple metrics (e.g. 'speed' **and** 'throttle')
-    
+    Compares/plots telemetry data (e.g. 'speed', 'throttle', 'brake', 'gear') for given drivers, metrics, and laps.
+
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         session_type (str): The type of session (e.g., 'race', 'qualifying').
         drivers (list): A list of driver abbreviations to compare.
         metrics (list): A list of metrics to compare (e.g., 'speed', 'gas').
-        laps (list): A list of laps to analyze.
+        laps (list): A list of laps to analyze (single lap or multiple laps).
         year (int): The Grand Prix's year. Default is 2024.
     """
+
+
     figures = []
+    
+    # Ensure inputs are lists for consistency
+    if isinstance(metrics, str):
+        metrics = [metrics]
+    if isinstance(laps, int):
+        laps = [laps]
+
+    session = fastf1.get_session(year, event, session_type)
+    session.load()
+
+    # Ensure driver names are abbreviations
+    drivers = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers]
+
+    # Validate available metrics
+    possible_metrics = ['Date', 'SessionTime', 'DriverAhead', 'DistanceToDriverAhead', 'Time',
+                        'RPM', 'Speed', 'nGear', 'Throttle', 'Brake', 'DRS', 'Source',
+                        'Distance', 'RelativeDistance', 'Status', 'X', 'Y', 'Z']
+    
+    # Get the proper names of the metrics
+    metrics = [get_most_similar_word(metric, possible_metrics) for metric in metrics]
+
+    # Get driver colors
+    driver_colors = get_driver_colors(session=session)
 
     for metric in metrics:
         for lap in laps:
-            fig = compare_metric(event=event, session_type=session_type, drivers_list=drivers, 
-                                 metric=metric, lap=lap, year=year)
+            # Prepare telemetry and car data for each driver
+            drivers_data = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap) for abbr in drivers}
+            telemetry_data = {abbr: drivers_data[abbr].get_telemetry() for abbr in drivers}
+            car_data = {abbr: drivers_data[abbr].get_car_data().add_distance() for abbr in drivers}
+
+            # Create a Plotly figure
+            fig = go.Figure()
+
+            # Plot telemetry for each driver
+            for abbr, telemetry_driver in telemetry_data.items():
+                fig.add_trace(go.Scatter(x=telemetry_driver['Distance'], 
+                                         y=telemetry_driver[metric], 
+                                         mode='lines',
+                                         name=abbr,
+                                         line=dict(color=driver_colors[abbr])))
+
+            # Plot corner information
+            circuit_info = session.get_circuit_info()
+            random_driver_data = list(car_data.values())[0]
+            v_min = random_driver_data[metric].min()
+            v_max = random_driver_data[metric].max()
+
+            for _, corner in circuit_info.corners.iterrows():
+                fig.add_shape(type='line',
+                              x0=corner['Distance'], x1=corner['Distance'],
+                              y0=0.9*v_min, y1=1.05*v_max,
+                              line=dict(color='grey', dash='dot'))
+                fig.add_annotation(x=corner['Distance'], y=0.8*v_min, 
+                                   text=f"{corner['Number']}{corner['Letter']}",
+                                   showarrow=False, font=dict(size=10))
+
+            # Highlight DRS zones - maybe show for specific inputs only?
+            for abbr, car_data_driver in car_data.items():
+                drs_zones = get_drs_zones(car_data_driver)
+                for drs_zone in drs_zones:
+                    start, end = drs_zone
+                    fig.add_shape(type='rect',
+                                  x0=start, x1=end,
+                                  y0=0.9*v_min, y1=1.05*v_max,
+                                  fillcolor=driver_colors[abbr],
+                                  opacity=0.15,
+                                  line_width=0)
+
+            # Add labels and legend
+            fig.update_layout(title=f'{metric} Comparison Between Drivers {drivers} | Lap {lap} | {year} {event}',
+                              xaxis_title='Distance (m)',
+                              yaxis_title=metric,
+                              legend_title='Drivers')
+
+            # Store the figure
             figures.append(fig)
 
     return figures
 
 
-# Expand for multiple laps (of same driver) ?
-# FIX: driver colors
-@register_function
-def compare_metric(event: str, session_type: str, drivers_list: list, metric: str, lap:int, year: int=2024):
-    """
-    Compares the telemetry of a specific metric (e.g., 'speed', 'gas', 'throttle', 'gear') from a list of drivers.
-    Use it only when there is one metric in the input.
-    
-    Parameters:
-        event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
-        session_type (str): The type of session (e.g., 'race', 'qualifying').
-        drivers_list (list): The names of the drivers to compare.
-        metric (str): The metric to compare (e.g., 'speed', 'gas').
-        lap (int): The specific lap of the session.
-        year (int): The Grand Prix's year.
-    """
-
-    # Specific plottting style
-    fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False, color_scheme='fastf1')
-
-    session = fastf1.get_session(year, event, session_type)  
-    session.load()
-
-    # Make sure the driver names are abbreviations
-    drivers_list = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers_list]
-
-    # Create dictionaries for laps and telemetry data.
-    drivers = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap) for abbr in drivers_list}
-    telemetry_drivers = {abbr: drivers[abbr].get_telemetry() for abbr in drivers_list}
-
-    # Find relevant names based on existing telemetry DataFrame columns
-    possible_metrics = ['Date', 'SessionTime', 'DriverAhead', 'DistanceToDriverAhead', 'Time',
-                        'RPM', 'Speed', 'nGear', 'Throttle', 'Brake', 'DRS', 'Source',
-                        'Distance', 'RelativeDistance', 'Status', 'X', 'Y', 'Z'] # easier than accessing random driver and then telemetry -> maybe can improve
-   
-    metric = get_most_similar_word(metric, possible_metrics)
-
-    # Get driver colors of the session
-    driver_colors = get_driver_colors(session=session)
-
-    # Create a matplotlib figure
-    fig, ax = plt.subplots(figsize=(16, 6))
-
-    # Main metric graph
-    for abbr, telemetry_driver in telemetry_drivers.items():
-        ax.plot(telemetry_driver['Distance'], telemetry_driver[metric], label=abbr, color=driver_colors[abbr])
-
-    car_data_drivers = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap).get_car_data().add_distance() for abbr in drivers_list}
-    
-    # random driver needed for the plots
-    random_data = list(car_data_drivers.values())[0]
-
-    circuit_info = session.get_circuit_info()
-
-    # Draw vertical dotted lines at each corner that range from slightly below the
-    # minimum speed to slightly above the maximum speed.
-    v_min = random_data[metric].min()
-    v_max = random_data[metric].max()
-    ax.vlines(x=circuit_info.corners['Distance'], ymin=0.9*v_min, ymax=1.05*v_max,
-            linestyles='dotted', colors='grey')
-
-    # Plot the corner number just below each vertical line.
-    # For corners that are very close together, the text may overlap. A more
-    # complicated approach would be necessary to reliably prevent this.
-    for _, corner in circuit_info.corners.iterrows():
-        txt = f"{corner['Number']}{corner['Letter']}"
-        ax.text(corner['Distance'], 0.8*v_min, txt,
-                va='center_baseline', ha='center', size='small')
-
-
-    # Find DRS zones for each driver and plot box with their color
-    for abbr in drivers_list:
-
-        # Load car data for specific driver
-        car_data = car_data_drivers[abbr]
-
-        # Locate DRS zones
-        drs_zones = get_drs_zones(car_data)
-
-        # Highlight specific distance ranges with a green transparent box
-        for drs_zone in drs_zones:
-            start, end = drs_zone
-            ax.axvspan(start, end, color=driver_colors[abbr], alpha=0.15)
-
-    # Adding labels and legend
-    ax.set_xlabel('Distance (m)')
-    ax.set_ylabel(f'{metric}')
-    ax.set_title(f'{metric} Comparison Between Drivers | Lap {lap} | {year} {event}')
-    ax.legend()
-    
-    return fig
 
 
 # Improve naming
@@ -671,6 +676,8 @@ def fastest_driver_freq_plot(year: int=2024):
     Parameters:
         year (int): The season's year. Defaults to 2024.
     """
+    import plotly.graph_objects as go
+    from collections import Counter
 
     schedule = get_schedule_until_now(2024)
     events = list(schedule['EventName'])
@@ -679,7 +686,6 @@ def fastest_driver_freq_plot(year: int=2024):
 
     for event in events:
         driver, _, _ = get_fastest_lap_time_result(event)
-
         drivers_list.append(driver)
 
     # Create a frequency dictionary
@@ -695,20 +701,27 @@ def fastest_driver_freq_plot(year: int=2024):
     # Get driver colors of the season
     driver_colors = get_driver_colors(year=year)
 
-    # Create a matplotlib figure
-    fig, ax = plt.subplots(figsize=(10, 6))
-
     # Generate the list of colors for the bars based on the driver_colors mapping
     bar_colors = [driver_colors[driver] for driver in drivers]
 
-    # Plot the bar chart with the custom colors
-    ax.bar(drivers, counts, color=bar_colors)
-    
-    # Add labels and title
-    ax.set_xlabel('Drivers')
-    ax.set_ylabel('Frequency')
-    ax.set_title('Frequency of Fastest Laps')
-    
+    # Create a Plotly bar chart
+    fig = go.Figure()
+
+    fig.add_trace(go.Bar(
+        x=drivers, 
+        y=counts, 
+        marker=dict(color=bar_colors),
+        name='Fastest Lap Frequency'
+    ))
+
+    # Customize layout
+    fig.update_layout(
+        title='Frequency of Fastest Laps',
+        xaxis_title='Drivers',
+        yaxis_title='Frequency',
+        showlegend=False
+    )
+
     return fig
 
 
@@ -731,6 +744,7 @@ def compare_quali_season(drivers_list: list, year: int=2024):
 
     # Make sure the driver names are abbreviations
     drivers_list = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers_list]
+    drivers_list.sort()
 
     # Load and preprocess the data
     quali_df = pd.read_csv(f'data/gps_{year}_season_quali.csv')
@@ -739,35 +753,48 @@ def compare_quali_season(drivers_list: list, year: int=2024):
     quali_df = quali_df[quali_df['Driver'].isin(drivers_list)]
     quali_df = quali_df[~quali_df['EventName'].str.startswith('Pre-Season')]
 
-    # # Plot with specific DRIVER_COLORS
-    # bar_colors = {driver: DRIVER_COLORS[driver] for driver in drivers_list}
-    # bar_colors[drivers_list[1]] = lighten_color(bar_colors[drivers_list[1]], amount=0.2)
+    # Plot based on driver colors - solution for same team drivers comparison
+    bar_colors = {}
+    for driver in drivers_list:
+        style = fastf1.plotting.get_driver_style(identifier=driver, style=['color', 'linestyle'], session=session)
+        color = style['color']
+        linestyle = style['linestyle'].replace('ed', '') # dashed to dash because of plotly :)
 
-    # Plot based on driver colors
-    bar_colors = {driver : fastf1.plotting.get_driver_color(driver, session) for driver in drivers_list}
+        if linestyle == 'dash': color = lighten_color(color)
+        
+        bar_colors[driver] = color
 
     # Plot 1: Line plot for qualifying positions
-    fig1, ax1 = plt.subplots(figsize=(10, 6))
+    fig1 = go.Figure()
 
-    # Adding markers to the plot
     for driver, data in quali_df.groupby('Driver'):
         short_event = data['EventName'].apply(lambda x: x.replace('Grand Prix', ''))
-        ax1.plot(short_event, data['Position'], label=driver, marker='o', color=bar_colors[driver])
+        fig1.add_trace(go.Scatter(
+            x=short_event, 
+            y=data['Position'],
+            mode='markers+lines',
+            name=driver,
+            marker=dict(color=bar_colors[driver]),
+            line=dict(color=bar_colors[driver])
+        ))
 
-    # Adding labels and legend
-    ax1.set_xlabel('Grand Prix')
-    ax1.set_ylabel('Position')
-    ax1.set_title(f'Qualifying Position vs Event of Different Drivers for {year}')
-    ax1.legend(title='Driver')
-    ax1.invert_yaxis()  # Reverse y-axis so 1st position is at the top
-    ax1.set_xticks(range(len(short_event)))
-    ax1.set_xticklabels(short_event, rotation=90, ha='right')  # Adjust rotation
-    ax1.set_ylim([20.5, 0.5])
-    ax1.set_yticks([1, 5, 10, 15, 20])
-    ax1.grid()
+    fig1.update_layout(
+        title=f'Qualifying Position vs Event of Different Drivers for {year}',
+        xaxis_title='Grand Prix',
+        yaxis_title='Position',
+        yaxis=dict(
+            tickvals=[1, 5, 10, 15, 20],
+            ticktext=['1', '5', '10', '15', '20'],
+            autorange='reversed'
+        ),
+        xaxis=dict(
+            tickangle=90,
+            showgrid=True,
+        ),
+        showlegend=True,
+        height=600
+    )
 
-    # Automatically adjust layout for the first plot
-    fig1.tight_layout()
 
     # Pivot the DataFrame for easier comparison by EventName
     pivoted = quali_df.pivot(index='EventName', columns='Driver', values='Position')
@@ -780,189 +807,213 @@ def compare_quali_season(drivers_list: list, year: int=2024):
 
     # Extract drivers and counts
     drivers, counts = outquali_df['BetterDriver'], outquali_df['Count']
+    driver_counts_map = dict(zip(drivers, counts))
 
     # Plot 2: Horizontal bar chart for driver performance counts
-    fig2, ax2 = plt.subplots(figsize=(10, 2))
+    fig2 = go.Figure()
 
-    # Plot left and right bars with ax.barh
-    ax2.barh(0, -counts[0], color=bar_colors[drivers_list[0]] , label=f'{drivers[0]} Count', align='center')
-    ax2.barh(0, counts[1], color=bar_colors[drivers_list[1]] , label=f'{drivers[1]} Count', align='center')
+    fig2.add_trace(go.Bar(
+        y=['Qualifying Performance'],
+        x=[-driver_counts_map[drivers[0]]],
+        name=f'{drivers[0]} Count',
+        orientation='h',
+        marker=dict(color=bar_colors[drivers[0]]),
+        hoverinfo='skip'  # Disable hover information for this bar
+    ))
 
-    # Add a vertical line at center
-    ax2.axvline(0, color='white', linewidth=1)
+    fig2.add_trace(go.Bar(
+        y=['Qualifying Performance'],
+        x=[driver_counts_map[drivers[1]]],
+        name=f'{drivers[1]} Count',
+        orientation='h',
+        marker=dict(color=bar_colors[drivers[1]]),
+        hoverinfo='skip'  # Disable hover information for this bar
+    ))
 
-    # Add labels and title
-    ax2.set_xlabel('Count')
-    ax2.set_title(f'{year} Qualifying Performance: Outqualified Counts')
+    # Add the count values inside the bars
+    fig2.add_trace(go.Scatter(
+        x=[-counts[0] / 2],
+        y=['Qualifying Performance'],
+        text=[str(counts[0])],
+        mode='text',
+        textfont=dict(color='black'),
+        showlegend=False,
+        hoverinfo='skip'  # Disable hover information for this bar
+    ))
 
-    # Add legend
-    ax2.legend()
+    fig2.add_trace(go.Scatter(
+        x=[counts[1] / 2],
+        y=['Qualifying Performance'],
+        text=[str(counts[1])],
+        mode='text',
+        textfont=dict(color='black'),
+        showlegend=False,
+        hoverinfo='skip'  # Disable hover information for this bar
+    ))
 
-    # Remove y-axis ticks (since there's only one row)
-    ax2.set_yticks([])
-    ax2.set_yticklabels([])
-
-    # Remove x-axis ticks
-    ax2.set_xticks([])
-
-    # Adjust the x-axis limits for better spacing
-    ax2.set_xlim(-max(counts)-2, max(counts)+2)
-
-    # Add count values inside the bars
-    ax2.text(-counts[0]/2, 0, str(counts[0]), color='black', ha='center', va='center')
-    ax2.text(counts[1]/2, 0, str(counts[1]), color='black', ha='center', va='center')
-
-    # Automatically adjust layout for the second plot
-    fig2.tight_layout()
-    
+    fig2.update_layout(
+        title=f'{year} Qualifying Performance: Outqualified Counts',
+        xaxis=dict(
+            title='Count',
+            zeroline=False,  # Disable the default zero line
+            showgrid=False,
+            showticklabels=False
+        ),
+        yaxis=dict(showticklabels=False),
+        barmode='overlay',
+        showlegend=True,
+        height=250,
+        shapes=[
+            dict(
+                type='line',
+                x0=0,
+                x1=0,
+                y0=-0.5,
+                y1=0.5,
+                line=dict(color='white', width=2),
+                layer='above'  # Ensure this line appears above the bars
+            )
+        ]
+    )   
     return [fig1, fig2]
 
+
 @register_function
-def laptime_plot(event:str, drivers_list: list=[], year: int=2024):
+def laptime_plot(event: str, drivers_list: list = [], year: int = 2024):
     """
-    Generates a line plot of the lap times of specified drivers in a specific Grand Prix.
-    
+    Generates a line plot of the lap times of specified drivers in a specific Grand Prix using Plotly.
+
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         drivers_list (list): The names of the drivers to compare.
         year (int): The Grand Prix's year.
     """
 
-    # Enable Matplotlib patches for plotting timedelta values and load
-    # FastF1's dark color scheme
-    fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False,
-                          color_scheme=None)
-
-
     # Load a specific race session
-    session = fastf1.get_session(year, event, 'R')  
+    session = fastf1.get_session(year, event, 'R')
     session.load()
 
     # Get driver colors of the session
     driver_colors = get_driver_colors(session=session, year=year)
 
-    if drivers_list == []:
+    if not drivers_list:
         drivers_list = session.drivers
         drivers_list = [session.get_driver(driver)['Abbreviation'] for driver in session.drivers]
     else:
         drivers_list = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers_list]
 
-    # # Retrieve the correct event name from fastf1
-    # event_name = session.session_info['Meeting']['Name']
-
     # Retrieve the correct event name from fastf1
     event_name = fastf1.get_event(year, event)['EventName']
 
-    fig, ax = plt.subplots(figsize=(12, 8))
+    # Create a Plotly figure
+    fig = go.Figure()
 
     # Loop over each driver abbreviation
     for driver in drivers_list:
         driver_laps = session.laps.pick_drivers(driver).pick_quicklaps().reset_index()
 
-        sns.lineplot(
-        data=driver_laps,
-        x="LapNumber",
-        y="LapTime",
-        ax=ax,
-        label=driver,  # Label each driver's data for the legend
-        color=driver_colors[driver],
-        linewidth=2,  # Adjust the thickness of the lines
-        marker='o'
-        )
+        fig.add_trace(go.Scatter(
+            x=driver_laps['LapNumber'],
+            y=driver_laps['LapTime'].dt.total_seconds(),  # Convert timedelta to seconds for plotting
+            mode='lines+markers',
+            name=driver,
+            line=dict(color=driver_colors[driver], width=2),
+            marker=dict(symbol='circle')
+        ))
 
-    ax.set_xlabel("Lap Number")
-    ax.set_ylabel("Lap Time")
-    ax.invert_yaxis()
-
-    ax.set_title(f"Laptimes in the {year} {event_name}")
-    ax.grid(which='major', axis='both')
-    sns.despine(left=True, bottom=True)
-
-    ax.legend(title="Driver")
-    fig.tight_layout()
+    # Customize layout
+    fig.update_layout(
+        title=f"Laptimes in the {year} {event_name}",
+        xaxis_title="Lap Number",
+        yaxis_title="Lap Time (s)",
+        yaxis=dict(autorange='reversed'),  # Invert y-axis to show faster laps at the top
+        legend_title="Driver",
+    )
 
     return fig
 
+
 # Might need to also check the classified grid starting position if needed?
-# Can also add a +0.xxx s in the bars to show the difference?
+# Inspired by fastf1
 @register_function
-def get_qualifying_results(event: str):
+def get_qualifying_results(event: str, year: int = 2024):
     """
-    Retrieves the qualifying results for a specific Grand Prix.
+    Retrieves and visualizes the qualifying results for a specific Grand Prix using Plotly.
 
     Parameters:
         event (str): Name of the Grand Prix.
+        year (int): Year of the Grand Prix.
     """
-
-    # Enable Matplotlib patches for plotting timedelta values
-    fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False,
-                            color_scheme=None)
-
-
-    session = fastf1.get_session(2024, event, 'Q')
+    session = fastf1.get_session(year, event, 'Q')
     session.load()
 
-    list_fastest_laps = list()
-
+    list_fastest_laps = []
     for drv in session.drivers:
-        drvs_fastest_lap = session.laps.pick_drivers(drv).pick_fastest()
-        list_fastest_laps.append(drvs_fastest_lap)
+        drv_fastest_lap = session.laps.pick_drivers(drv).pick_fastest()
+        list_fastest_laps.append(drv_fastest_lap)
     
-    fastest_laps = Laps(list_fastest_laps) \
-        .sort_values(by='LapTime') \
-        .reset_index(drop=True)
+    fastest_laps = Laps(list_fastest_laps).sort_values(by='LapTime').reset_index(drop=True)
 
     pole_lap = fastest_laps.pick_fastest()
     fastest_laps['LapTimeDelta'] = fastest_laps['LapTime'] - pole_lap['LapTime']
 
-    team_colors = list()
-    for index, lap in fastest_laps.iterlaps():
-        color = fastf1.plotting.get_team_color(lap['Team'], session=session)
-        team_colors.append(color)
+    team_colors = [
+        fastf1.plotting.get_team_color(lap['Team'], session=session) 
+        for _, lap in fastest_laps.iterlaps()
+    ]
 
+    # Create the horizontal bar chart
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=fastest_laps['LapTimeDelta'].dt.total_seconds(),  # Convert timedelta to seconds
+        y=fastest_laps['Driver'],
+        orientation='h',
+        marker=dict(color=team_colors, line=dict(color='grey', width=1)),
+        customdata=fastest_laps['LapTimeDelta'].dt.total_seconds(),  # Store seconds in customdata
+        hovertemplate='+%{customdata:.3f}s',  # Add 's' to the hover text
+        name=''
+    ))
 
-    fig, ax = plt.subplots()
-    ax.barh(fastest_laps.index, fastest_laps['LapTimeDelta'],
-            color=team_colors, edgecolor='grey')
-    ax.set_yticks(fastest_laps.index)
-    ax.set_yticklabels(fastest_laps['Driver'])
-
-    # show fastest at the top
-    ax.invert_yaxis()
-
-    # draw vertical lines behind the bars
-    ax.set_axisbelow(True)
-    ax.xaxis.grid(True, which='major', linestyle='--', color='black', zorder=-1000)
-
-
-    lap_time_string = strftimedelta(pole_lap['LapTime'], '%m:%s.%ms')
-
-    ax.set_title(f"{session.event['EventName']} {session.event.year} Qualifying\n"
-                f"Fastest Lap: {lap_time_string} ({pole_lap['Driver']})")
+    # Customize layout
+    pole_time_str = strftimedelta(pole_lap['LapTime'], '%m:%s.%ms')
+    fig.update_layout(
+        title={
+            'text': f"{session.event['EventName']} {session.event.year} Qualifying<br>"
+                    f"Fastest Lap: {pole_time_str} ({pole_lap['Driver']})",
+            'x': 0.5,
+        },
+        xaxis=dict(
+            title="Lap Time Delta (s)",
+            showgrid=True,
+            gridcolor='lightgrey',
+            zeroline=True,
+            zerolinecolor='black',
+            zerolinewidth=1,
+        ),
+        yaxis=dict(
+            title="Driver",
+            autorange='reversed'  # Fastest on top
+        ),
+        # plot_bgcolor='white',
+        height=600
+    )
 
     return fig
 
 # Inspired by the fastf1 example function
 # Has a bug with compound colors
 @register_function
-def laptime_distribution_plot(event: str, year: int=2024):
+def laptime_distribution_plot(event: str, year: int = 2024):
     """
-    Generates a violin plot of the lap time distributions for the top 10 point finishers in a specified Grand Prix.
+    Generates a violin plot of the lap time distributions for the top 10 point finishers in a specified Grand Prix using Plotly.
     
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         year (int): The Grand Prix's year.
     """
-
-    # Enable Matplotlib patches for plotting timedelta values and load FastF1's dark color scheme
-    fastf1.plotting.setup_mpl(mpl_timedelta_support=True, misc_mpl_mods=False, color_scheme=None)
-
     # Load the race session
     session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race
     session.load()
-
-    # # Retrieve the correct event name from fastf1
-    # event_name = session.session_info['Meeting']['Name'] # maybe prettier way?
 
     # Retrieve the correct event name from fastf1
     event_name = fastf1.get_event(year, event)['EventName']
@@ -977,48 +1028,54 @@ def laptime_distribution_plot(event: str, year: int=2024):
     # Convert timedelta to float (seconds) for proper plotting
     driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
 
-    # # Get compound colors
-    # compounds_dict = fastf1.plotting.get_compound_mapping(session=session)
+    # Drop rows with NaN in 'Compound' to avoid errors
+    driver_laps = driver_laps.dropna(subset=['Compound'])
 
-    # drop nan compound rows as it creates an error in the swarmplot
-    driver_laps = driver_laps.drop(driver_laps[driver_laps['Compound'] == 'nan'].index)
+    # Create driver color mapping
+    driver_colors = fastf1.plotting.get_driver_color_mapping(session=session)
 
-    # Create the plot
-    fig, ax = plt.subplots(figsize=(10, 5))
+    # Create compound color mapping
+    compound_colors = fastf1.plotting.get_compound_mapping(session=session)
 
-    # Violin plot
-    sns.violinplot(
-        data=driver_laps,
-        x="Driver",
-        y="LapTime(s)",
-        hue="Driver",
-        inner=None,
-        density_norm="area",
-        order=finishing_order,
-        palette=fastf1.plotting.get_driver_color_mapping(session=session)
+    # Create the figure
+    fig = go.Figure()
+
+    # Add violin traces for each driver
+    for driver in finishing_order:
+        driver_data = driver_laps[driver_laps["Driver"] == driver]
+        
+        # Use the compound color for the entire driver
+        driver_color = driver_data["Compound"].map(compound_colors).mode()[0]  # Use most common compound color
+        
+        fig.add_trace(go.Violin(
+            x=driver_data["Driver"],
+            y=driver_data["LapTime(s)"],
+            name=driver,
+            line_color=driver_colors.get(driver, 'blue'),
+            box_visible=True,
+            meanline_visible=True,
+            points="all",
+            pointpos=0,
+            marker=dict(
+                size=4,
+                color=driver_color  # Use the computed color for the driver
+            )
+        ))
+
+    # Customize layout
+    fig.update_layout(
+        title=f"{year} {event_name} Lap Time Distributions",
+        xaxis_title="Driver",
+        yaxis_title="Lap Time (s)",
+        yaxis=dict(showgrid=True, zeroline=True, zerolinecolor='black'),
+        # plot_bgcolor="white",
+        height=600,
+        legend_title="Driver",
     )
-
-    # Swarm plot
-    sns.swarmplot(
-        data=driver_laps,
-        x="Driver",
-        y="LapTime(s)",
-        order=finishing_order,
-        hue="Compound",
-        palette=fastf1.plotting.get_compound_mapping(session=session),
-        hue_order=driver_laps['Compound'].unique(),
-        linewidth=0,
-        size=4
-    )
-
-    ax.set_xlabel("Driver")
-    ax.set_ylabel("Lap Time (s)")
-    ax.set_title(f"{year} {event_name} Lap Time Distributions")
-    sns.despine(left=True, bottom=True)
-
-    fig.tight_layout()
 
     return fig
+
+
 
 
     
