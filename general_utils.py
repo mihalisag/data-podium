@@ -568,9 +568,9 @@ def get_drs_zones(car_data):
 
 
 @register_function
-def compare_telemetry(event: str, session_type: str, drivers: list, metrics: list, laps: list, year: int=2024):
+def compare_telemetry(event: str, session_type: str, drivers: list, metrics: list, laps: list, year: int = 2024):
     """
-    Compares/plots telemetry data (e.g. 'speed', 'throttle', 'brake', 'gear') for given drivers, metrics, and laps.
+    Compares/plots telemetry data (e.g., 'speed', 'throttle', 'brake', 'gear') for given drivers, metrics, and laps.
 
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
@@ -581,15 +581,15 @@ def compare_telemetry(event: str, session_type: str, drivers: list, metrics: lis
         year (int): The Grand Prix's year. Default is 2024.
     """
 
-
     figures = []
-    
+
     # Ensure inputs are lists for consistency
     if isinstance(metrics, str):
         metrics = [metrics]
     if isinstance(laps, int):
         laps = [laps]
 
+    # Load the session data
     session = fastf1.get_session(year, event, session_type)
     session.load()
 
@@ -597,16 +597,31 @@ def compare_telemetry(event: str, session_type: str, drivers: list, metrics: lis
     drivers = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers]
 
     # Validate available metrics
-    possible_metrics = ['Date', 'SessionTime', 'DriverAhead', 'DistanceToDriverAhead', 'Time',
-                        'RPM', 'Speed', 'nGear', 'Throttle', 'Brake', 'DRS', 'Source',
-                        'Distance', 'RelativeDistance', 'Status', 'X', 'Y', 'Z']
-    
-    # Get the proper names of the metrics
+    possible_metrics = [
+        'Date', 'SessionTime', 'DriverAhead', 'DistanceToDriverAhead', 'Time',
+        'RPM', 'Speed', 'nGear', 'Throttle', 'Brake', 'DRS', 'Source',
+        'Distance', 'RelativeDistance', 'Status', 'X', 'Y', 'Z'
+    ]
     metrics = [get_most_similar_word(metric, possible_metrics) for metric in metrics]
 
     # Get driver colors
     driver_colors = get_driver_colors(session=session)
 
+    # Functionality to compare fastest lap telemetries
+    # Fastest lap to driver map
+    lap_driver_map = {}
+
+    if laps[0] == 'fastest':
+        for abbr in drivers:
+            fastest_lap_num = int(session.laps.pick_drivers(abbr).pick_fastest()['LapNumber'])
+            lap_driver_map[fastest_lap_num] = abbr
+    else:
+        for lap in laps:
+            lap_driver_map[lap] = None
+    
+    laps = list(lap_driver_map.keys())
+
+    # Plot for each metric
     for metric in metrics:
         for lap in laps:
             # Prepare telemetry and car data for each driver
@@ -618,12 +633,16 @@ def compare_telemetry(event: str, session_type: str, drivers: list, metrics: lis
             fig = go.Figure()
 
             # Plot telemetry for each driver
-            for abbr, telemetry_driver in telemetry_data.items():
-                fig.add_trace(go.Scatter(x=telemetry_driver['Distance'], 
-                                         y=telemetry_driver[metric], 
-                                         mode='lines',
-                                         name=abbr,
-                                         line=dict(color=driver_colors[abbr])))
+            for driver_abbr, telemetry_driver in telemetry_data.items():
+                fig.add_trace(
+                    go.Scatter(
+                        x=telemetry_driver['Distance'],
+                        y=telemetry_driver[metric],
+                        mode='lines',
+                        name=driver_abbr,
+                        line=dict(color=driver_colors[driver_abbr])
+                    )
+                )
 
             # Plot corner information
             circuit_info = session.get_circuit_info()
@@ -632,37 +651,52 @@ def compare_telemetry(event: str, session_type: str, drivers: list, metrics: lis
             v_max = random_driver_data[metric].max()
 
             for _, corner in circuit_info.corners.iterrows():
-                fig.add_shape(type='line',
-                              x0=corner['Distance'], x1=corner['Distance'],
-                              y0=0.9*v_min, y1=1.05*v_max,
-                              line=dict(color='grey', dash='dot'))
-                fig.add_annotation(x=corner['Distance'], y=0.8*v_min, 
-                                   text=f"{corner['Number']}{corner['Letter']}",
-                                   showarrow=False, font=dict(size=10))
+                fig.add_shape(
+                    type='line',
+                    x0=corner['Distance'], x1=corner['Distance'],
+                    y0=0.9 * v_min, y1=1.05 * v_max,
+                    line=dict(color='grey', dash='dot')
+                )
+                fig.add_annotation(
+                    x=corner['Distance'], y=0.8 * v_min,
+                    text=f"{corner['Number']}{corner['Letter']}",
+                    showarrow=False, font=dict(size=10)
+                )
 
-            # Highlight DRS zones - maybe show for specific inputs only?
-            for abbr, car_data_driver in car_data.items():
-                drs_zones = get_drs_zones(car_data_driver)
-                for drs_zone in drs_zones:
-                    start, end = drs_zone
-                    fig.add_shape(type='rect',
-                                  x0=start, x1=end,
-                                  y0=0.9*v_min, y1=1.05*v_max,
-                                  fillcolor=driver_colors[abbr],
-                                  opacity=0.15,
-                                  line_width=0)
+            # Highlight DRS zones
+            if metric == 'Speed':
+                for driver_abbr, car_data_driver in car_data.items():
+                    drs_zones = get_drs_zones(car_data_driver)
+                    for start, end in drs_zones:
+                        fig.add_shape(
+                            type='rect',
+                            x0=start, x1=end,
+                            y0=0.7 * v_min, y1=1.05 * v_max,
+                            fillcolor=driver_colors[driver_abbr],
+                            opacity=0.15,
+                            line_width=0
+                        )
+
+            # Different title depending on fastest laps or not
+            fastest_driver_abbr = lap_driver_map[lap]
+            
+            if fastest_driver_abbr == None:
+                title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} | {year} {event}'
+            else:
+                title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} ({fastest_driver_abbr}) | {year} {event}'
 
             # Add labels and legend
-            fig.update_layout(title=f'{metric} Comparison Between Drivers {drivers} | Lap {lap} | {year} {event}',
-                              xaxis_title='Distance (m)',
-                              yaxis_title=metric,
-                              legend_title='Drivers')
+            fig.update_layout(
+                title=title,
+                xaxis_title='Distance (m)',
+                yaxis_title=metric,
+                legend_title='Drivers'
+            )
 
             # Store the figure
             figures.append(fig)
 
     return figures
-
 
 
 
