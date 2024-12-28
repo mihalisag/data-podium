@@ -256,7 +256,7 @@ def get_reaction_time(event:str, speed: int, year: int=2024):
 
     
 
-@register_function
+# @register_function
 def get_fastest_lap_time_result(event: str, year: int=2024):
     """
     Finds the fastest lap time for a specific Grand Prix or event and returns relevant details.
@@ -279,7 +279,7 @@ def get_fastest_lap_time_result(event: str, year: int=2024):
     
 
 @register_function
-def get_fastest_lap_time_print(event: str):
+def get_fastest_lap_time_print(event: str, year: int=2024):
     """
     Finds and prints the fastest lap time for a specific Grand Prix or event.
 
@@ -287,7 +287,7 @@ def get_fastest_lap_time_print(event: str):
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
     """
 
-    driver, lap_num, lap_time = get_fastest_lap_time_result(event)
+    driver, lap_num, lap_time = get_fastest_lap_time_result(event, year)
     sentence = f"{driver} had the fastest lap time of {lap_time} at lap {lap_num}."
 
     return sentence
@@ -566,16 +566,15 @@ def get_drs_zones(car_data):
 
     return merged_zones
 
-
+# Add fasatest lap time as subtitle in plot for each driver
 @register_function
-def compare_telemetry(event: str, session_type: str, drivers: list, metrics: list, laps: list, year: int = 2024):
+def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list, year: int = 2024):
     """
     Compares/plots telemetry data (e.g., 'speed', 'throttle', 'brake', 'gear') for given drivers, metrics, and laps.
 
     Parameters:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
-        session_type (str): The type of session (e.g., 'race', 'qualifying').
-        drivers (list): A list of driver abbreviations to compare.
+        drivers_list (list): A list of driver abbreviations to compare.
         metrics (list): A list of metrics to compare (e.g., 'speed', 'gas').
         laps (list): A list of laps to analyze (single lap or multiple laps).
         year (int): The Grand Prix's year. Default is 2024.
@@ -590,11 +589,11 @@ def compare_telemetry(event: str, session_type: str, drivers: list, metrics: lis
         laps = [laps]
 
     # Load the session data
-    session = fastf1.get_session(year, event, session_type)
+    session = fastf1.get_session(year, event, 'R')
     session.load()
 
     # Ensure driver names are abbreviations
-    drivers = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers]
+    drivers = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers_list]
 
     # Validate available metrics
     possible_metrics = [
@@ -607,97 +606,129 @@ def compare_telemetry(event: str, session_type: str, drivers: list, metrics: lis
     # Get driver colors
     driver_colors = get_driver_colors(session=session)
 
-    # Functionality to compare fastest lap telemetries
-    # Fastest lap to driver map
-    lap_driver_map = {}
+    def create_plot(telemetry_data, car_data, metric, driver_colors, session, figures, fastest_bool, lap=None):
+        """
+            Subfunction to generate the plots
+        """
+        # Create a Plotly figure
+        fig = go.Figure()
 
-    if laps[0] == 'fastest':
-        for abbr in drivers:
-            fastest_lap_num = int(session.laps.pick_drivers(abbr).pick_fastest()['LapNumber'])
-            lap_driver_map[fastest_lap_num] = abbr
-    else:
-        for lap in laps:
-            lap_driver_map[lap] = None
-    
-    laps = list(lap_driver_map.keys())
-
-    # Plot for each metric
-    for metric in metrics:
-        for lap in laps:
-            # Prepare telemetry and car data for each driver
-            drivers_data = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap) for abbr in drivers}
-            telemetry_data = {abbr: drivers_data[abbr].get_telemetry() for abbr in drivers}
-            car_data = {abbr: drivers_data[abbr].get_car_data().add_distance() for abbr in drivers}
-
-            # Create a Plotly figure
-            fig = go.Figure()
-
-            # Plot telemetry for each driver
-            for driver_abbr, telemetry_driver in telemetry_data.items():
-                fig.add_trace(
-                    go.Scatter(
-                        x=telemetry_driver['Distance'],
-                        y=telemetry_driver[metric],
-                        mode='lines',
-                        name=driver_abbr,
-                        line=dict(color=driver_colors[driver_abbr])
-                    )
+        # Plot telemetry for each driver
+        for driver_abbr, telemetry_driver in telemetry_data.items():
+            fig.add_trace(
+                go.Scatter(
+                    x=telemetry_driver['Distance'],
+                    y=telemetry_driver[metric],
+                    mode='lines',
+                    name=driver_abbr,
+                    line=dict(color=driver_colors[driver_abbr])
                 )
-
-            # Plot corner information
-            circuit_info = session.get_circuit_info()
-            random_driver_data = list(car_data.values())[0]
-            v_min = random_driver_data[metric].min()
-            v_max = random_driver_data[metric].max()
-
-            for _, corner in circuit_info.corners.iterrows():
-                fig.add_shape(
-                    type='line',
-                    x0=corner['Distance'], x1=corner['Distance'],
-                    y0=0.9 * v_min, y1=1.05 * v_max,
-                    line=dict(color='grey', dash='dot')
-                )
-                fig.add_annotation(
-                    x=corner['Distance'], y=0.8 * v_min,
-                    text=f"{corner['Number']}{corner['Letter']}",
-                    showarrow=False, font=dict(size=10)
-                )
-
-            # Highlight DRS zones
-            if metric == 'Speed':
-                for driver_abbr, car_data_driver in car_data.items():
-                    drs_zones = get_drs_zones(car_data_driver)
-                    for start, end in drs_zones:
-                        fig.add_shape(
-                            type='rect',
-                            x0=start, x1=end,
-                            y0=0.7 * v_min, y1=1.05 * v_max,
-                            fillcolor=driver_colors[driver_abbr],
-                            opacity=0.15,
-                            line_width=0
-                        )
-
-            # Different title depending on fastest laps or not
-            fastest_driver_abbr = lap_driver_map[lap]
-            
-            if fastest_driver_abbr == None:
-                title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} | {year} {event}'
-            else:
-                title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} ({fastest_driver_abbr}) | {year} {event}'
-
-            # Add labels and legend
-            fig.update_layout(
-                title=title,
-                xaxis_title='Distance (m)',
-                yaxis_title=metric,
-                legend_title='Drivers'
             )
 
-            # Store the figure
-            figures.append(fig)
+        # Plot corner information
+        circuit_info = session.get_circuit_info()
+        random_driver_data = list(car_data.values())[0]
+        v_min = random_driver_data[metric].min()
+        v_max = random_driver_data[metric].max()
+
+        for _, corner in circuit_info.corners.iterrows():
+            fig.add_shape(
+                type='line',
+                x0=corner['Distance'], x1=corner['Distance'],
+                y0=0.9 * v_min, y1=1.05 * v_max,
+                line=dict(color='grey', dash='dot')
+            )
+            fig.add_annotation(
+                x=corner['Distance'], y=0.8 * v_min,
+                text=f"{corner['Number']}{corner['Letter']}",
+                showarrow=False, font=dict(size=10)
+            )
+
+        # Highlight DRS zones
+        if metric == 'Speed':
+            for driver_abbr, car_data_driver in car_data.items():
+                drs_zones = get_drs_zones(car_data_driver)
+                for start, end in drs_zones:
+                    fig.add_shape(
+                        type='rect',
+                        x0=start, x1=end,
+                        y0=0.7 * v_min, y1=1.05 * v_max,
+                        fillcolor=driver_colors[driver_abbr],
+                        opacity=0.15,
+                        line_width=0
+                    )
+
+        if fastest_bool == True:
+            lap_driver_map = {abbr : int(session.laps.pick_drivers(abbr).pick_fastest()['LapNumber']) for abbr in drivers}
+            title_substring = '( '
+            for lap in lap_driver_map:
+                title_substring += f'{lap}-{lap_driver_map[lap]} '
+            title_substring += ')'
+            title = f'{metric} Comparison Between Drivers {drivers} | Fastest Laps {title_substring} | {year} {event}'
+        else:
+            title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} | {year} {event}'
+
+        # Add labels and legend
+        fig.update_layout(
+            title=title,
+            xaxis_title='Distance (m)',
+            yaxis_title=metric,
+            legend_title='Drivers'
+        )
+
+        # Store the figure
+        figures.append(fig)
+
+    # Plot for each metric
+    # Modified main loop
+    for metric in metrics:
+
+        if laps[0] in ['fastest', 'quickest', 'best']:
+            drivers_data = {}
+            telemetry_data = {}
+            car_data = {}
+
+            for abbr in drivers:
+                drivers_data[abbr] = session.laps.pick_drivers(abbr).pick_fastest()
+                telemetry_data[abbr] = drivers_data[abbr].get_telemetry()
+                car_data[abbr] = drivers_data[abbr].get_car_data().add_distance()
+
+            # Call the plot function here
+            create_plot(telemetry_data, car_data, metric, driver_colors, session, figures, fastest_bool=True)
+
+        else:
+            for lap in laps:
+                drivers_data = {abbr: session.laps.pick_drivers(abbr).pick_laps(lap) for abbr in drivers}
+                telemetry_data = {abbr: drivers_data[abbr].get_telemetry() for abbr in drivers}
+                car_data = {abbr: drivers_data[abbr].get_car_data().add_distance() for abbr in drivers}
+
+                # Call the plot function here for non-fastest laps if needed
+                create_plot(telemetry_data, car_data, metric, driver_colors, session, figures, fastest_bool=False, lap=lap)
 
     return figures
 
+
+
+ # # Functionality to compare fastest lap telemetries
+    # # Fastest lap to driver map
+    # lap_driver_map = {}
+
+    # if laps[0] == 'fastest':
+    #     for abbr in drivers:
+    #         fastest_lap_num = int(session.laps.pick_drivers(abbr).pick_fastest()['LapNumber'])
+    #         lap_driver_map[fastest_lap_num] = abbr
+    # else:
+    #     for lap in laps:
+    #         lap_driver_map[lap] = None
+    
+    # laps = list(lap_driver_map.keys())
+    # # Different title depending on fastest laps or not
+    # fastest_driver_abbr = lap_driver_map[lap]
+
+    # if fastest_driver_abbr == None:
+    #     title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} | {year} {event}'
+    # else:
+    #     title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} ({fastest_driver_abbr}) | {year} {event}'
 
 
 # Improve naming
@@ -710,8 +741,6 @@ def fastest_driver_freq_plot(year: int=2024):
     Parameters:
         year (int): The season's year. Defaults to 2024.
     """
-    import plotly.graph_objects as go
-    from collections import Counter
 
     schedule = get_schedule_until_now(2024)
     events = list(schedule['EventName'])
@@ -911,7 +940,8 @@ def compare_quali_season(drivers_list: list, year: int=2024):
     )   
     return [fig1, fig2]
 
-
+# change color of second driver if in same team (see season qualifying performance function)
+# show laptimes in correct format
 @register_function
 def laptime_plot(event: str, drivers_list: list = [], year: int = 2024):
     """
@@ -1037,7 +1067,7 @@ def get_qualifying_results(event: str, year: int = 2024):
 # Inspired by the fastf1 example function
 # Has a bug with compound colors
 @register_function
-def laptime_distribution_plot(event: str, year: int = 2024):
+def laptime_distribution_plot(event: str, year: int=2024):
     """
     Generates a violin plot of the lap time distributions for the top 10 point finishers in a specified Grand Prix using Plotly.
     
@@ -1108,8 +1138,6 @@ def laptime_distribution_plot(event: str, year: int = 2024):
     )
 
     return fig
-
-
 
 
     
@@ -1184,6 +1212,23 @@ def get_wikipedia_text(event: str, year: int=2024):
     return short_text
 
 
+def get_drivers(event: str, year: int=2024):
+    """
+        Get drivers and their colors for specific event
+    """
+
+    session = fastf1.get_session(year, event, 'R')
+    session.load()
+
+    # drivers = session.drivers
+    # drivers = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers]
+
+    drivers = fastf1.plotting.list_driver_abbreviations(session=session)
+    driver_colors = fastf1.plotting.get_driver_color_mapping(session=session)
+
+    return drivers, driver_colors
+
+
 # New implementation - still needs adjustment and maybe summary from chatgpt
 # Could also print
 # - average lap time and best lap time - driver
@@ -1214,8 +1259,19 @@ def race_statistics(event: str, year: int=2024):
     except Exception as e:
         return f"An error occurred: {e}"
     
+# Return parameters of function
+func_param_gen = lambda f : dict(inspect.signature(f).parameters.items()).keys()
 
+def get_total_laps(event:str, year: int=2024):
+    """
+        Returns total laps number of a race
+    """
 
+    # Load the session
+    session = fastf1.get_session(year, event, 'R')
+    session.load()
+
+    return session.total_laps
 
 # Could also print
 # - average lap time and best lap time - driver
