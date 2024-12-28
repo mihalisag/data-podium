@@ -19,7 +19,6 @@ for year in YEARS:
     year_event_names = list(get_schedule_until_now(year)['EventName'])
     grand_prix_by_year[year] = year_event_names
 
-
 # Create two columns
 col1, col2 = st.columns(2)
 
@@ -34,31 +33,33 @@ with col2:
 
 # st.write(f"You selected: {selected_gp} from {selected_year}")
 
-# # -- OPENAI --
-# Load environment variables from the .env file
-# load_dotenv()
+def initialize_client(platform="groq"):
+    """
+        Initialize the OpenAI client based on the specified platform.
+    """
+    if platform.lower() == "openai":
+        load_dotenv('openai.env')
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        model = "gpt-4o-mini"
+    elif platform.lower() == "groq":
+        load_dotenv('groq.env')
+        client = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=os.getenv("GROQ_API_KEY"))
+        model = "llama3-70b-8192"
+    else:
+        raise ValueError(f"Unsupported platform: {platform}")
 
-# # Initialize OpenAI client with the API key from environment variables
-# client = OpenAI(
-#     api_key=os.getenv("OPENAI_API_KEY"),
-# )
+    return client, model
 
-# MODEL = "gpt-4o-mini"
+# Example usage
+if __name__ == "__main__":
+    platform = "groq"  # Change to "openai" for OpenAI platform
+    client, model = initialize_client(platform)
+    print(f"Initialized client for platform: {platform}, using model: {model}")
 
-
-# -- GROQ --
-load_dotenv('groq.env')
-
-client =OpenAI(
-    base_url="https://api.groq.com/openai/v1",
-    api_key=os.getenv("GROQ_API_KEY")
-)
-
-MODEL = "llama3-70b-8192"
 
 # Set a default model
 if "openai_model" not in st.session_state:
-    st.session_state["openai_model"] = MODEL
+    st.session_state["openai_model"] = model
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -86,24 +87,6 @@ if 'memory' not in st.session_state:
 # for func, example in function_examples.items():
 #     st.write(f"- {example}")
 
-# # old (working with openai)
-# prime_template = """
-# As an AI assistant, analyze the user's input and select the most suitable function and parameters from the list of available functions below. Match the user's intent to the corresponding function and fill in its parameters using information extracted from the input. Structure your response as JSON.
-
-# Input: {user_input}
-
-# Available functions:
-# {functions_text}
-# """
-
-# prime_template = """
-# As an AI assistant, analyze the user's input and select the most suitable function and parameters from the list of available functions below. Match the user's intent to the corresponding function and fill in its parameters using information extracted from the input. Please structure your response **only** as JSON. Do not explain your decision, just output the JSON.
-
-# Input: {user_input}
-
-# Available functions:
-# {functions_text}
-# """
 
 prime_template = """
 As an AI assistant, analyze the user's input and select the most suitable function and parameters from the list of available functions below. Match the user's intent to the corresponding function and fill in its parameters using information extracted from the input and the provided memory. Please structure your response **only** as JSON. Do not explain your decision, just output the JSON.
@@ -135,12 +118,6 @@ if st.button('Overview'):
     statistics = race_statistics(selected_gp, selected_year)
     st.write(statistics)
 
-    # # Basic race statistics
-    # for idx, item in enumerate(statistics):
-    #     if len(item) >= 1:
-    #         st.write(f"{item}\n")
-
-
 user_input = st.text_area("Enter your question here:")
 
     
@@ -163,7 +140,7 @@ if st.button("Get Answer"):
 
         # Call OpenAI API
         response = client.chat.completions.create(
-            model=MODEL,
+            model=model,
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": complete_prime}
