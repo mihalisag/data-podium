@@ -13,3 +13,4 @@ seaborn==0.13.2
 streamlit==1.40.1
 timple==0.1.8
 Wikipedia_API==0.7.1
+fastf1==3.4.4
