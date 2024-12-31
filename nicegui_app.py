@@ -12,6 +12,10 @@ from nicegui import ui, run
 
 import fastf1
 
+# Multiprocessing freeze
+import multiprocessing
+multiprocessing.freeze_support()
+
 # # Enable dark mode
 # dark = ui.dark_mode()
 # dark.enable()
@@ -316,7 +320,7 @@ with ui.row():
 # Always show the "Execute" button in the same row
 ui.button("Execute", on_click=execute_function)
 
-ui.run(host='0.0.0.0', port=8080)
+ui.run(host='0.0.0.0', port=8080, reload=False)
 # ui.run()
 
 
