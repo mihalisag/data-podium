@@ -316,7 +316,8 @@ with ui.row():
 # Always show the "Execute" button in the same row
 ui.button("Execute", on_click=execute_function)
 
-ui.run()
+ui.run(host='0.0.0.0', port=8080)
+# ui.run()
 
 
 
