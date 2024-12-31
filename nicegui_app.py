@@ -12,8 +12,36 @@ from nicegui import ui, run
 
 import fastf1
 
+# # Enable dark mode
+# dark = ui.dark_mode()
+# dark.enable()
+
 ui.page_title("🏎️ F1 Assistant")
-ui.markdown("# 🏎️ F1 Assistant")
+
+
+with ui.row():
+    ui.markdown("# 🏎️ F1 Assistant")
+
+    # ui.button('L/D', on_click=dark.toggle)
+
+
+# Helper function to style the Plotly figure
+def style_plotly_figure(fig, dark_mode):
+    """Update Plotly figure styles based on the theme."""
+    if dark_mode:
+        fig.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",  # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
+            font=dict(size=12, family="Arial, sans-serif", color="white"),  # White text for dark mode
+        )
+    else:
+        fig.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",  # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
+            font=dict(size=12, family="Arial, sans-serif", color="black"),  # Black text for light mode
+        )
+
+
 
 # Description to function - need to improve
 desc_to_function = {
@@ -103,7 +131,15 @@ async def render_result(result):
         elif isinstance(result, plt.Figure):
             ui.pyplot(result)
         elif isinstance(result, go.Figure):
-            # Ensure Plotly figure spans full width
+
+            # Streamlit-like styling
+            result.update_layout(
+                plot_bgcolor="rgba(0,0,0,0)",  # Transparent background
+                paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
+                font=dict(size=16, family="Arial, sans-serif", color="grey"),  # Grey font for dark mode
+                # margin=dict(l=10, r=10, t=30, b=10),
+            )
+
             ui.plotly(result).style('width: 100%')
         elif isinstance(result, list):
             if len(result) > 0:
