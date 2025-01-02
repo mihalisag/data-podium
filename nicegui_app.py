@@ -8,13 +8,17 @@ import general_utils
 from general_utils import *
 
 from openai import OpenAI
-from nicegui import ui, run
+from nicegui import ui, run # , native
 
 import fastf1
 
-# Multiprocessing freeze
-import multiprocessing
-multiprocessing.freeze_support()
+# macOS packaging support
+# from multiprocessing import freeze_support  # noqa
+# freeze_support()  # noqa
+
+# # Multiprocessing freeze
+# import multiprocessing
+# multiprocessing.freeze_support()
 
 # # Enable dark mode
 # dark = ui.dark_mode()
@@ -320,8 +324,13 @@ with ui.row():
 # Always show the "Execute" button in the same row
 ui.button("Execute", on_click=execute_function)
 
-ui.run(host='0.0.0.0', port=8080, reload=False)
-# ui.run()
+# flyio run
+# ui.run(reload=False, port=native.find_open_port(), native=True)
+
+# ui.run(host='0.0.0.0', port=8080, reload='FLY_ALLOC_ID' not in os.environ)
+# ui.run(reload='FLY_ALLOC_ID' not in os.environ)
+# ui.run(host='0.0.0.0', port=8080, reload=False)
+ui.run()
 
 
 
