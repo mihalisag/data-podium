@@ -1,16 +1,11 @@
 import os
 import json
-import re
-from nicegui import ui
-from dotenv import load_dotenv
 
 import general_utils
 from general_utils import *
 
 from openai import OpenAI
 from nicegui import ui, run # , native
-
-import fastf1
 
 # macOS packaging support
 # from multiprocessing import freeze_support  # noqa
@@ -24,11 +19,11 @@ import fastf1
 # dark = ui.dark_mode()
 # dark.enable()
 
-ui.page_title("🏎️ F1 Assistant")
+ui.page_title("🏎️ Data Podium")
 
 
 with ui.row():
-    ui.markdown("# 🏎️ F1 Assistant")
+    ui.markdown("# 🏎️ Data Podium")
 
     # ui.button('L/D', on_click=dark.toggle)
 
@@ -48,7 +43,6 @@ def style_plotly_figure(fig, dark_mode):
             paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
             font=dict(size=12, family="Arial, sans-serif", color="black"),  # Black text for light mode
         )
-
 
 
 # Description to function - need to improve
@@ -324,59 +318,4 @@ with ui.row():
 # Always show the "Execute" button in the same row
 ui.button("Execute", on_click=execute_function)
 
-# flyio run
-# ui.run(reload=False, port=native.find_open_port(), native=True)
-
-# ui.run(host='0.0.0.0', port=8080, reload='FLY_ALLOC_ID' not in os.environ)
-# ui.run(reload='FLY_ALLOC_ID' not in os.environ)
-# ui.run(host='0.0.0.0', port=8080, reload=False)
 ui.run()
-
-
-
-# # Button callback to display selected values
-# def show_selected_values(event, values_list=[]):
-#     for item in values_list:
-#         ui.label(f"Item: {item}")
-#     # ui.label(f"Selected Year: {selected_year}, Selected Grand Prix: {selected_grand_prix}")
-#     # ui.notify(f"Selected Year: {selected_year}, Selected Grand Prix: {selected_grand_prix}")
-
-
-# # Add the fixed "Execute" button and function select dropdown
-# with ui.row():  # Create a row for the "Select function" and "Execute" button
-#     with ui.column():  # Column for function select dropdown
-#         function = ui.select(
-#             label="Select a function:",
-#             options=list(desc_to_function.keys()),
-#             on_change=function_select,
-#             with_input=True,
-#         ).style('width: 400px;')
-
-# # Always show the "Execute" button in the same row
-# ui.button("Execute", on_click=execute_function)
-
-# # Add an empty row for the results, so they appear in the next line
-# with ui.row():
-#     with ui.column() as dynamic_ui_placeholder: 
-#         pass  # This is the place where the results will appear after execution
-
-# # Results and dynamic content container, placed below the Execute button
-# with ui.column() as result_placeholder:
-#     pass  # Dynamic content will be added here after executing the function
-
-
-# session = fastf1.get_session(selected_year_dropdown.value, selected_gp_dropdown.value, 'R')  
-# session.load()
-
-# driver_colors = fastf1.plotting.get_driver_color_mapping(session=session)
-
-# def render_chip(driver):
-#     # Function to render a chip with the appropriate color
-#     return f'<div style="background-color: {driver_colors[driver]}; color: white; padding: 5px; border-radius: 15px;">{driver}</div>'
-
-# # Corrected use of `options` instead of `valueoptions`
-# selected_drivers = ui.select(
-#     options=[{'value': d, 'text': render_chip(d)} for d in drivers],
-#     multiple=True
-# ).props('use-chips')
-
