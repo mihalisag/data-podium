@@ -21,12 +21,10 @@ from nicegui import ui, run # , native
 
 ui.page_title("🏎️ Data Podium")
 
-
 with ui.row():
     ui.markdown("# 🏎️ Data Podium")
 
     # ui.button('L/D', on_click=dark.toggle)
-
 
 # Helper function to style the Plotly figure
 def style_plotly_figure(fig, dark_mode):
@@ -45,7 +43,7 @@ def style_plotly_figure(fig, dark_mode):
         )
 
 
-# Description to function - need to improve
+# Description to function - need to improve AND MAKE SMALLER
 desc_to_function = {
     "Show the race schedule": "get_schedule_until_now",
     "Retrieve drivers' reaction times to reach a specific speed at the race start.": "get_reaction_time",
@@ -243,7 +241,7 @@ async def function_select(event):
 
             # Handle metrics parameter
             if 'metrics' in function_parameters:
-                metrics = ['speed', 'throttle', 'brake']
+                metrics = ['All', 'RPM', 'Speed', 'nGear', 'Throttle', 'Brake']
                 selected_metrics = ui.select(
                     label='Select metric(s):',
                     options=metrics,
@@ -318,4 +316,6 @@ with ui.row():
 # Always show the "Execute" button in the same row
 ui.button("Execute", on_click=execute_function)
 
-ui.run()
+ui.colors(primary='#FF1821')#, secondary='#53B689', accent='#111B1E', positive='#53B689')
+
+ui.run(host="0.0.0.0", port=5000)

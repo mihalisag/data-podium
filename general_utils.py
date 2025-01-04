@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 
 import plotly.graph_objects as go
 
@@ -657,18 +658,22 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
                     )
 
         if fastest_bool == True:
-            lap_driver_map = {abbr : int(session.laps.pick_drivers(abbr).pick_fastest()['LapNumber']) for abbr in drivers}
-            title_substring = '( '
-            for lap in lap_driver_map:
-                title_substring += f'{lap}-{lap_driver_map[lap]} '
-            title_substring += ')'
-            title = f'{metric} Comparison Between Drivers {drivers} | Fastest Laps {title_substring} | {year} {event}'
+            title_substring = '| '
+            for abbr in drivers:
+                lap_num, laptime = session.laps.pick_drivers(abbr).pick_fastest()[['LapNumber', 'LapTime']] 
+                title_substring += f'{abbr}: {strftimedelta(laptime, "%m:%s.%ms")} at lap {int(lap_num)} | '
+            title = f'{metric} Graph | {year} {event}'
+            title = f"{title}<br><span style='font-size:16px;'>{title_substring}</span>"
         else:
-            title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} | {year} {event}'
+            title = f'{metric} Graph | Lap {lap} | {year} {event}'
 
         # Add labels and legend
         fig.update_layout(
-            title=title,
+             title={
+                'text': title,
+                'x': 0.5,  # Centers the title
+                'xanchor': 'center'
+            },
             xaxis_title='Distance (m)',
             yaxis_title=metric,
             legend_title='Drivers'
