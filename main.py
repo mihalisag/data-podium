@@ -15,59 +15,54 @@ from nicegui import ui, run # , native
 # import multiprocessing
 # multiprocessing.freeze_support()
 
-# # Enable dark mode
-# dark = ui.dark_mode()
-# dark.enable()
-
 @ui.page('/')
 def main_page():
+    
+    ui.page_title("🏎️ Data Podium")
+    ui.colors(primary='#FF1821')#, secondary='#53B689', accent='#111B1E', positive='#53B689')
+
+    # with ui.row():
+    #     ui.markdown("# 🏎️ Data Podium")
+
+
     # global result_placeholder, dynamic_ui_placeholder  # Declare as global variables
 
     # Initialize placeholders
     result_placeholder = None
     dynamic_ui_placeholder = None
 
-    ui.page_title("🏎️ Data Podium")
-
-    with ui.row():
-        ui.markdown("# 🏎️ Data Podium")
-
-        # ui.button('L/D', on_click=dark.toggle)
-
+        
     # Helper function to style the Plotly figure
     def style_plotly_figure(fig, dark_mode):
-        """Update Plotly figure styles based on the theme."""
-        if dark_mode:
-            fig.update_layout(
-                plot_bgcolor="rgba(0,0,0,0)",  # Transparent background
-                paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
-                font=dict(size=12, family="Arial, sans-serif", color="white"),  # White text for dark mode
-            )
-        else:
-            fig.update_layout(
-                plot_bgcolor="rgba(0,0,0,0)",  # Transparent background
-                paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
-                font=dict(size=12, family="Arial, sans-serif", color="black"),  # Black text for light mode
-            )
 
+        color = dark_mode*'black' + (1-dark_mode)*'white'
+
+        """Update Plotly figure styles based on the theme."""
+        fig.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",  # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
+            font=dict(size=12, family="Arial, sans-serif", color=color),  # White text for dark mode
+            legend=dict(font=dict(size=8))
+        )
+       
 
     # Description to function - need to improve AND MAKE SMALLER
     desc_to_function = {
-        "Show the race schedule": "get_schedule_until_now",
-        "Retrieve drivers' reaction times to reach a specific speed at the race start.": "get_reaction_time",
-        "Show the fastest lap time": "get_fastest_lap_time_print",
-        "Display the podium finishes for all races in the season": "get_season_podiums",
-        "Shows the final race results": "get_race_results",
-        "Output the winner": "get_winner",
-        "Display drivers' positions throughout the race": "get_positions_during_race",
-        "Compare telemetry data of drivers for specific laps": "compare_telemetry",
-        "Plot the count of fastest laps for each driver in the season": "fastest_driver_freq_plot",
-        "Compare qualifying performance between drivers in the season": "compare_quali_season",
-        "Plot lap times of specified drivers": "laptime_plot",
-        "Visualize qualifying results": "get_qualifying_results",
-        "Show the lap time distribution": "laptime_distribution_plot",
-        "Display the pit stop details": "get_pit_stops",
-        "Show basic statistics": "race_statistics"
+        "Season schedule": "get_schedule_until_now",
+        "Reaction times at race start.": "get_reaction_time",
+        "Fastest lap time": "get_fastest_lap_time_print",
+        "Season podium finishes": "get_season_podiums",
+        "Race results": "get_race_results",
+        # "Output the winner": "get_winner",
+        "Race position changes": "get_positions_during_race",
+        "Telemetry comparison": "compare_telemetry",
+        "Season fastest laps": "fastest_driver_freq_plot",
+        "Season qualifying performance": "compare_quali_season",
+        "Race lap times": "laptime_plot",
+        "Qualifying results": "get_qualifying_results",
+        "Lap time distribution": "laptime_distribution_plot",
+        "Pit stop information": "get_pit_stops",
+        "Race overview": "race_statistics"
     }
 
 
@@ -93,10 +88,6 @@ def main_page():
         year_event_names = list(get_schedule_until_now(year)['EventName'])
         grand_prix_by_year[year] = year_event_names
 
-
-    # Assuming `desc_to_function`, `function_dispatcher`, and `func_param_gen` are defined elsewhere
-    dynamic_ui_placeholder = None  # Placeholder for dynamic UI elements
-
     # Initialize selected values with default dropdown values
     selected_values = {
         'drivers_list': None,
@@ -120,71 +111,61 @@ def main_page():
         """Dynamically render different types of results in NiceGUI."""
         nonlocal result_placeholder  # Use the instance-specific placeholder
 
+        def render_dataframe(df):
+            """Helper to render a pandas DataFrame as a table."""
+            df_serializable = df.copy()
+            for col in df_serializable.select_dtypes(include=['datetime', 'datetimetz']):
+                df_serializable[col] = df_serializable[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+            ui.table(
+                columns=[{'field': col, 'title': col} for col in df_serializable.columns],
+                rows=df_serializable.to_dict('records'),
+            ).style("width: 100%; display: flex; justify-content: center; align-items: center;")
+
+        def render_item(item):
+            """Helper to render a single item based on its type."""
+            if isinstance(item, str):
+                ui.label(item).style("white-space: pre-wrap;")
+            elif isinstance(item, pd.DataFrame):
+                render_dataframe(item)
+            elif isinstance(item, plt.Figure):
+                ui.pyplot(item)
+            elif isinstance(item, go.Figure):
+                v_grid = True
+
+                # # Remove grid vertical grid line
+                # if item.data[0].type == 'bar':
+                #     v_grid = False
+
+                item.update_layout(
+                    plot_bgcolor="rgba(0,0,0,0)",  # Transparent background
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="white"),
+                    xaxis=dict(showgrid=v_grid, gridcolor="rgba(128,128,128,0.4)", gridwidth=0.75, griddash="dash"),
+                    yaxis=dict(showgrid=True, gridcolor="rgba(128,128,128,0.4)", gridwidth=0.75, griddash="dash"),
+                )
+                ui.plotly(item).style('width: 100%; height: 100%;')
+            else:
+                ui.label("Unsupported item type.").style("color: orange;")
+                ui.label(str(item)).style("white-space: pre-wrap;")
+
+        # Normalize result to a list
+        result_list = result if isinstance(result, list) else [result]
+
         # Clear the previous results
         if result_placeholder is not None:
             result_placeholder.clear()
 
         with ui.row().classes('w-full') as result_placeholder:  # Use a row with full width
-            if isinstance(result, str):
-                ui.label(result).style("white-space: pre-wrap;")
-            elif isinstance(result, pd.DataFrame):
-                df_serializable = result.copy()
-                for col in df_serializable.select_dtypes(include=['datetime', 'datetimetz']):
-                    df_serializable[col] = df_serializable[col].dt.strftime('%Y-%m-%d %H:%M:%S')
-                ui.table(
-                    columns=[{'field': col, 'title': col} for col in df_serializable.columns],
-                    rows=df_serializable.to_dict('records'),
-                )
-            elif isinstance(result, plt.Figure):
-                ui.pyplot(result)
-            elif isinstance(result, go.Figure):
-
-                # Streamlit-like styling
-                result.update_layout(
-                    plot_bgcolor="rgba(0,0,0,0)",  # Transparent background
-                    paper_bgcolor="rgba(0,0,0,0)",  # Transparent background
-                    font=dict(size=16, family="Arial, sans-serif", color="grey"),  # Grey font for dark mode
-                    # margin=dict(l=10, r=10, t=30, b=10),
-                )
-
-                ui.plotly(result).style('width: 100%')
-            elif isinstance(result, list):
-                if len(result) > 0:
-                    first_item = result[0]
-                    if isinstance(first_item, str):
-                        for idx, item in enumerate(result):
-                            ui.label(f"{item}\n").style("white-space: pre-wrap;")
-                    elif isinstance(first_item, pd.DataFrame):
-                        for idx, item in enumerate(result):
-                            df_serializable = item.copy()
-                            for col in df_serializable.select_dtypes(include=['datetime', 'datetimetz']): # can make date simpler to prevent this
-                                df_serializable[col] = df_serializable[col].dt.strftime('%Y-%m-%d %H:%M:%S')
-                            ui.table(
-                                columns=[{'field': col, 'title': col} for col in df_serializable.columns],
-                                rows=df_serializable.to_dict('records'),
-                            )
-                    elif isinstance(first_item, plt.Figure):
-                        for idx, item in enumerate(result):
-                            ui.pyplot(item)
-                    elif isinstance(first_item, go.Figure):
-                        for idx, item in enumerate(result):
-                            ui.plotly(item).style('width: 100%')
-                    else:
-                        ui.label("List contains unsupported item types.").style("color: orange;")
-                        for idx, item in enumerate(result):
-                            ui.label(f"Item {idx + 1}:")
-                            ui.label(str(item)).style("white-space: pre-wrap;")
-                else:
-                    ui.label("The list is empty.").style("color: blue;")
+            if not result_list:
+                ui.label("The list is empty.").style("color: blue;")
             else:
-                ui.label("Unexpected output type.").style("color: red;")
-                ui.label(str(result)).style("white-space: pre-wrap;")
+                for item in result_list:
+                    render_item(item)
 
     async def execute_function():
         """
-        Dynamically execute the selected function with appropriate parameters and render the output.
+        Execute the selected function and display the result in the second card.
         """
-        nonlocal result_placeholder  # Use the instance-specific placeholder
 
         function_name = desc_to_function[function.value]  # Get the selected function name
         print(f"Executing {function_name} with parameters: {selected_values}")
@@ -195,27 +176,33 @@ def main_page():
         print(f"Function Arguments: {function_args}")
 
         try:
-            spinner = ui.spinner(size='lg')  # Display spinner
+            spinner = ui.spinner(size='lg').style("position: absolute; top: 8px; right: 8px;").classes('ml-2')
             # Run the function execution in a separate thread or process
             result = await run.cpu_bound(function_dispatcher[function_name], **function_args)
             spinner.delete()
+            print("Execution complete. Result stored.")
 
-            # Dynamically render the result
-            await render_result(result)
+            # Automatically display the result in the second card
+            if result_placeholder is not None:
+                result_placeholder.clear()
+                with result_placeholder:
+                    await render_result(result)
 
         except Exception as e:
             print(f"Error while executing {function_name}: {e}")
-
-            # Display error in the UI
+            # Clear the result placeholder and display the error
             if result_placeholder is not None:
                 result_placeholder.clear()
-            with ui.column() as result_placeholder:
-                ui.label(f"Error: {e}").style("color: red;")
+                with result_placeholder:
+                    ui.label(f"Error: {e}").style("color: red;")
+
+            # Notify the user of the error
+            ui.notify(f"Execution failed: {e}", color="red")
 
 
     # Function select handler
     async def function_select(event):
-        global dynamic_ui_placeholder
+        nonlocal dynamic_ui_placeholder
         function = event
         function_name = desc_to_function[function.value]
         function_object = function_dispatcher[function_name]
@@ -234,7 +221,7 @@ def main_page():
 
                 # Handle drivers_list parameter
                 if 'drivers_list' in function_parameters:
-                    spinner = ui.spinner(size='lg')  # Display spinner
+                    spinner = ui.spinner(size='lg').style("position: absolute; top: 8px; right: 8px;").classes('ml-2')  # Display spinner
                     drivers, driver_colors = await run.io_bound(
                         get_drivers, selected_gp_dropdown.value, selected_year_dropdown.value
                     )
@@ -243,7 +230,8 @@ def main_page():
                         label='Select driver(s):',
                         options=drivers,
                         multiple=True,
-                        on_change=lambda e: update_selected_value('drivers_list', e.value)
+                        on_change=lambda e: update_selected_value('drivers_list', e.value),
+                        # clearable=True # clear selections button
                     ).props('use-chips').style('width: 300px;')
 
                 # Handle metrics parameter
@@ -258,7 +246,7 @@ def main_page():
 
                 # Handle laps parameter
                 if 'laps' in function_parameters:
-                    spinner = ui.spinner(size='lg')  # Display spinner
+                    spinner = ui.spinner(size='lg').style("position: absolute; top: 8px; right: 8px;").classes('ml-2')  # Display spinner
                     total_laps = await run.io_bound(
                         get_total_laps, selected_gp_dropdown.value, selected_year_dropdown.value
                     )
@@ -275,14 +263,15 @@ def main_page():
 
                 # Handle speed parameter
                 if 'speed' in function_parameters:
-                    ui.label('Speed (km/h): ')
-                    speed_slider = ui.slider(
-                        min=50,
-                        max=250,
-                        step=50,
-                        on_change=lambda e: update_selected_value('speed', e.value)
-                    ).style('width: 300px;')
-                    ui.label
+                    with ui.row():
+                        ui.label('Speed (km/h): ')
+                        speed_slider = ui.slider(
+                            min=50,
+                            max=250,
+                            step=25,
+                            on_change=lambda e: update_selected_value('speed', e.value)
+                        ).style('width: 300px;')
+                        ui.label().bind_text_from(speed_slider, 'value')
 
 
     # Function to update the Grand Prix list based on the selected year
@@ -294,35 +283,53 @@ def main_page():
         selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
         selected_gp_dropdown.update()  # Re-render the Grand Prix dropdown to reflect the updated options
 
-    # Create the UI layout with the year selection and Grand Prix selection
-    with ui.row():
-        # Year dropdown, triggered on change to update Grand Prix options
-        selected_year_dropdown = ui.select(
-            label="Select a year:",
-            options=list(YEARS),
-            value=selected_values['year'],  # Default value
-            on_change=update_grand_prix_list  # Call update_grand_prix_list when the year changes
-        ).style('width: 300px;')
-
-        # Initialize the Grand Prix list based on the default year
-        grand_prix_list = [*grand_prix_by_year.get(selected_values['year'], []), 'Season']
-        selected_gp_dropdown = ui.select(
-            label="Select Grand Prix:",
-            options=grand_prix_list,
-            value=selected_values['event'],  # Default value
-            on_change=lambda e: update_selected_value('event', e.value)
-        ).style('width: 400px;')
-
-        function = ui.select(
-        label="Select a function:",
-        options=list(desc_to_function.keys()),
-        on_change=function_select,
-        # with_input=True,
-        ).style('width: 400px;')
+    # Create the UI layout
+    with ui.card().classes("w-full p-4 shadow-lg"):
+        # Enable dark mode
+        dark = ui.dark_mode()
+        dark.enable()
         
-    # Always show the "Execute" button in the same row
-    ui.button("Execute", on_click=execute_function)
-    ui.colors(primary='#FF1821')#, secondary='#53B689', accent='#111B1E', positive='#53B689')
+        # # Create a button and position it at the top-right corner
+        # ui.button(icon='brightness_auto', on_click=dark.toggle).style("position: absolute; top: 12.5px; right: 12.5px; font-size: 18px; padding: 5px 8px;")    
+
+        # Application title
+        ui.markdown("# 🏎️ Data Podium")
+        
+        with ui.row():
+            # Year dropdown, triggered on change to update Grand Prix options
+            selected_year_dropdown = ui.select(
+                label="Select a year:",
+                options=list(YEARS),
+                value=selected_values['year'],  # Default value
+                on_change=update_grand_prix_list  # Call update_grand_prix_list when the year changes
+            ).style('width: 150px;')
+
+            # Initialize the Grand Prix list based on the default year
+            grand_prix_list = [*grand_prix_by_year.get(selected_values['year'], []), 'Season']
+            selected_gp_dropdown = ui.select(
+                label="Select Grand Prix:",
+                options=grand_prix_list,
+                value=selected_values['event'],  # Default value
+                on_change=lambda e: update_selected_value('event', e.value)
+            ).style('width: 200px;')
+
+            function = ui.select(
+                label="Select a function:",
+                options=list(desc_to_function.keys()),
+                on_change=function_select,
+            ).style('width: 250px;')
+
+            # Place the "Execute" button on the first card
+            ui.button("Show results", on_click=execute_function).style("position: absolute; bottom: 12.5px; right: 12.5px; margin-top: 12px;").classes('ml-2')
+    
+    result_placeholder = ui.column().style("width: 100%;") # Placeholder for the rendered result
+
+            # # Display Result button
+            # ui.button("Display Result", on_click=display_result)
+
+    # # Card to display results
+    # with ui.card().classes("w-full p-4 shadow-lg"):
+    #     result_placeholder = ui.column()  # Placeholder for the rendered result
 
 ui.run()
 # ui.run(host="0.0.0.0", port=5000)

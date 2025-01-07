@@ -367,7 +367,7 @@ def get_season_podiums(year: int = 2024):
 
     # Update layout
     fig.update_layout(
-        title="Podiums for Each Driver | {year} championship",
+        title=f"Podiums for Each Driver | {year} championship",
         xaxis_title="Driver",
         yaxis_title="Podium Count",
         xaxis=dict(tickangle=45),
@@ -502,9 +502,20 @@ def get_positions_during_race(event: str, year: int=2024):
     fig.update_layout(title=f'Position vs Lap | {year} {event}',
                       xaxis_title='Lap',
                       yaxis_title='Position',
-                      yaxis=dict(autorange='reversed', tickvals=[1, 5, 10, 15, 20]),
-                      legend_title='Driver')
-
+                      xaxis=dict(showgrid=False),
+                      yaxis=dict(autorange='reversed', tickvals=[1, 5, 10, 15, 20], showgrid=False, zeroline=False), # bug with white line at y=0 fixed
+                      font=dict(size=12, family="Arial, sans-serif"),
+                      legend_title='Abbreviation',
+                    #   title_y=0.98,
+                        legend=dict(
+                            font=dict(size=10),
+                            orientation='h',  # Horizontal legend
+                            yanchor='top',  # Align the legend to the top of its defined space
+                            y=-0.2,  # Position the legend below the plot
+                            xanchor='center',  # Center the legend horizontally
+                            x=0.5,  # Place the legend in the middle horizontally
+                        )
+                    )
     return fig
 
 
@@ -591,6 +602,9 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
     session = fastf1.get_session(year, event, 'R')
     session.load()
 
+    # Get driver colors
+    driver_colors = get_driver_colors(session=session)
+
     # Ensure driver names are abbreviations
     drivers = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers_list]
 
@@ -600,10 +614,12 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
         'RPM', 'Speed', 'nGear', 'Throttle', 'Brake', 'DRS', 'Source',
         'Distance', 'RelativeDistance', 'Status', 'X', 'Y', 'Z'
     ]
-    metrics = [get_most_similar_word(metric, possible_metrics) for metric in metrics]
 
-    # Get driver colors
-    driver_colors = get_driver_colors(session=session)
+    # Handle case of plotting all metrics
+    if metrics[0] == 'All':
+        metrics =  ['RPM', 'Speed', 'nGear', 'Throttle', 'Brake']
+    else:
+        metrics = [get_most_similar_word(metric, possible_metrics) for metric in metrics]
 
     def create_plot(telemetry_data, car_data, metric, driver_colors, session, figures, fastest_bool, lap=None):
         """
@@ -611,6 +627,8 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
         """
         # Create a Plotly figure
         fig = go.Figure()
+
+        print('Metric now: ', metric)
 
         # Plot telemetry for each driver
         for driver_abbr, telemetry_driver in telemetry_data.items():
@@ -627,20 +645,28 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
         # Plot corner information
         circuit_info = session.get_circuit_info()
         random_driver_data = list(car_data.values())[0]
-        v_min = random_driver_data[metric].min()
-        v_max = random_driver_data[metric].max()
+        # Positions of corner info in plot
+        metric_min = float(random_driver_data[metric].min())
+        metric_max = float(random_driver_data[metric].max())
+        
+        # Update corner line coordinates to span full y-range of the plot
+        corner_line_coors = [metric_min, metric_max]
+        corner_num_coor = metric_min - 0.05 * (metric_max - metric_min)  # Slightly below the start of the line
 
         for _, corner in circuit_info.corners.iterrows():
+            # Add vertical line for the corner
             fig.add_shape(
                 type='line',
                 x0=corner['Distance'], x1=corner['Distance'],
-                y0=0.9 * v_min, y1=1.05 * v_max,
+                y0=corner_line_coors[0], y1=corner_line_coors[1],
                 line=dict(color='grey', dash='dot')
             )
+            # Add corner number annotation just below the start of the line
             fig.add_annotation(
-                x=corner['Distance'], y=0.8 * v_min,
+                x=corner['Distance'], y=corner_num_coor,
                 text=f"{corner['Number']}{corner['Letter']}",
-                showarrow=False, font=dict(size=10)
+                showarrow=False, font=dict(size=10),
+                align='center'
             )
 
         # Highlight DRS zones
@@ -651,7 +677,7 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
                     fig.add_shape(
                         type='rect',
                         x0=start, x1=end,
-                        y0=0.7 * v_min, y1=1.05 * v_max,
+                        y0=0.7 * metric_min, y1=1.05 * metric_max,
                         fillcolor=driver_colors[driver_abbr],
                         opacity=0.15,
                         line_width=0
@@ -676,7 +702,9 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
             },
             xaxis_title='Distance (m)',
             yaxis_title=metric,
-            legend_title='Drivers'
+            legend_title='Drivers',
+            xaxis=dict(zeroline=False),
+            yaxis=dict(zeroline=False),            
         )
 
         # Store the figure
@@ -685,7 +713,7 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
     # Plot for each metric
     # Modified main loop
     for metric in metrics:
-
+        
         if laps[0] in ['fastest', 'quickest', 'best']:
             drivers_data = {}
             telemetry_data = {}
@@ -851,7 +879,8 @@ def compare_quali_season(drivers_list: list, year: int=2024):
         yaxis=dict(
             tickvals=[1, 5, 10, 15, 20],
             ticktext=['1', '5', '10', '15', '20'],
-            autorange='reversed'
+            autorange='reversed',
+            zeroline=False,
         ),
         xaxis=dict(
             tickangle=90,
@@ -993,7 +1022,8 @@ def laptime_plot(event: str, drivers_list: list = [], year: int = 2024):
         title=f"Laptimes in the {year} {event_name}",
         xaxis_title="Lap Number",
         yaxis_title="Lap Time (s)",
-        yaxis=dict(autorange='reversed'),  # Invert y-axis to show faster laps at the top
+        yaxis=dict(autorange='reversed', zeroline=False),  # Invert y-axis to show faster laps at the top
+        xaxis=dict(zeroline=False),
         legend_title="Driver",
     )
 
