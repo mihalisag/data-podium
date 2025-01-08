@@ -236,10 +236,9 @@ def main_page():
 
                 # Handle metrics parameter
                 if 'metrics' in function_parameters:
-                    metrics = ['All', 'RPM', 'Speed', 'nGear', 'Throttle', 'Brake']
                     selected_metrics = ui.select(
                         label='Select metric(s):',
-                        options=metrics,
+                        options=['All'] + PREDEF_METRICS,
                         multiple=True,
                         on_change=lambda e: update_selected_value('metrics', e.value)
                     ).props('use-chips').style('width: 300px;')
@@ -255,9 +254,9 @@ def main_page():
 
                     # Create the lap selector
                     laps_selector = ui.select(
-                        label='Select laps:',
+                        label='Select lap:',
                         options=lap_options,
-                        multiple=True,
+                        # multiple=True,
                         on_change=lambda e: update_selected_value('laps', e.value)
                     ).props('use-chips').style('width: 300px;')
 

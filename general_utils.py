@@ -107,6 +107,8 @@ def register_function(func: Callable) -> Callable:
 #  'Williams': '#00a0dd',
 #  'Alpine': '#ff87bc'}
 
+PREDEF_METRICS = ['Speed', 'Throttle', 'Brake', 'nGear', 'RPM']
+
 
 def lighten_color(color, amount=0.35):
     """
@@ -403,7 +405,7 @@ def get_race_results(event: str, year: int) -> pd.DataFrame:
 
     return results_df
 
-
+# Need to make this faster, use results from another function
 @register_function
 def get_winner(event: str, year: int) -> str:
     """
@@ -431,40 +433,6 @@ def get_winner(event: str, year: int) -> str:
 
     return f"{winner} won the {year} {event_name}"
 
-
-# # Old implementation
-# @register_function
-# def get_positions_during_race(event: str, drivers_list: list=[]):
-#     """
-#     Show positions of drivers throughout a race.
-    
-#     Parameters:
-#         event (str): The specific Grand Prix or event.
-#         drivers_list (list): The names of the drivers.
-#     """
-#     pos_df = pd.read_csv("data/gps_2024_season_laps.csv")
-#     pos_df = pos_df[['Driver', 'LapNumber', 'Stint', 'Position', 'EventName']]
-#     pos_df = pos_df[pos_df['EventName'] == event]
-
-#     if drivers_list:
-#         # Filter DataFrame for specific drivers
-#         pos_df = pos_df[pos_df['Driver'].isin(drivers_list)]
-
-#     # Create a matplotlib figure
-#     fig, ax = plt.subplots(figsize=(10, 6))
-
-#     # Group by 'Driver' and plot each driver's data
-#     for driver, data in pos_df.groupby('Driver'):
-#         ax.plot(data['LapNumber'], data['Position'], label=driver, color=DRIVER_COLORS[driver])
-
-#     # Adding labels and legend
-#     ax.set_xlabel('Lap')
-#     ax.set_ylabel('Position')
-#     ax.set_title(f'Position vs Lap for Different Drivers | {event}')
-#     ax.legend(title='Driver')
-#     ax.invert_yaxis()  # Optional: Reverse y-axis so 1st position is at the top
-    
-#     return fig
 
 # New implementation (inspired by fastf1 existing implementation) - no subset of drivers (could filter out with plotly?)
 @register_function
@@ -595,7 +563,7 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
     # Ensure inputs are lists for consistency
     if isinstance(metrics, str):
         metrics = [metrics]
-    if isinstance(laps, int):
+    if isinstance(laps, (int, str)):
         laps = [laps]
 
     # Load the session data
@@ -615,11 +583,18 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
         'Distance', 'RelativeDistance', 'Status', 'X', 'Y', 'Z'
     ]
 
+    # Bool to check if selected 'All' in metrics
+    all_selection = False
+
     # Handle case of plotting all metrics
     if metrics[0] == 'All':
-        metrics =  ['RPM', 'Speed', 'nGear', 'Throttle', 'Brake']
+        all_selection = True
+        metrics =  PREDEF_METRICS
     else:
         metrics = [get_most_similar_word(metric, possible_metrics) for metric in metrics]
+
+    fastest_bool = False
+    if laps[0] in ['fastest', 'quickest', 'best']: fastest_bool = True
 
     def create_plot(telemetry_data, car_data, metric, driver_colors, session, figures, fastest_bool, lap=None):
         """
@@ -645,10 +620,16 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
         # Plot corner information
         circuit_info = session.get_circuit_info()
         random_driver_data = list(car_data.values())[0]
+
         # Positions of corner info in plot
         metric_min = float(random_driver_data[metric].min())
         metric_max = float(random_driver_data[metric].max())
-        
+
+        # Handle gear plot bugs
+        if metric == 'nGear': 
+            metric_min = (metric_max - metric_min) / metric_max + 1
+            metric_max += 0.25
+
         # Update corner line coordinates to span full y-range of the plot
         corner_line_coors = [metric_min, metric_max]
         corner_num_coor = metric_min - 0.05 * (metric_max - metric_min)  # Slightly below the start of the line
@@ -683,7 +664,7 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
                         line_width=0
                     )
 
-        if fastest_bool == True:
+        if fastest_bool:
             title_substring = '| '
             for abbr in drivers:
                 lap_num, laptime = session.laps.pick_drivers(abbr).pick_fastest()[['LapNumber', 'LapTime']] 
@@ -714,7 +695,7 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
     # Modified main loop
     for metric in metrics:
         
-        if laps[0] in ['fastest', 'quickest', 'best']:
+        if fastest_bool:
             drivers_data = {}
             telemetry_data = {}
             car_data = {}
@@ -736,30 +717,20 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
                 # Call the plot function here for non-fastest laps if needed
                 create_plot(telemetry_data, car_data, metric, driver_colors, session, figures, fastest_bool=False, lap=lap)
 
+    # Create unified telemetry plot
+    if all_selection:
+        first_title = figures[0].layout.title.text.split('|')
+
+        if fastest_bool:
+            first_title = '|'.join(first_title[2:4]).lstrip(' ').rstrip(' ')
+        else:
+            first_title = first_title[1].lstrip(' ').rstrip(' ')
+
+        figures = [fig.update_layout(title=None) for fig in figures]
+        figures[0].update_layout(title=first_title)
+
     return figures
 
-
-
- # # Functionality to compare fastest lap telemetries
-    # # Fastest lap to driver map
-    # lap_driver_map = {}
-
-    # if laps[0] == 'fastest':
-    #     for abbr in drivers:
-    #         fastest_lap_num = int(session.laps.pick_drivers(abbr).pick_fastest()['LapNumber'])
-    #         lap_driver_map[fastest_lap_num] = abbr
-    # else:
-    #     for lap in laps:
-    #         lap_driver_map[lap] = None
-    
-    # laps = list(lap_driver_map.keys())
-    # # Different title depending on fastest laps or not
-    # fastest_driver_abbr = lap_driver_map[lap]
-
-    # if fastest_driver_abbr == None:
-    #     title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} | {year} {event}'
-    # else:
-    #     title = f'{metric} Comparison Between Drivers {drivers} | Lap {lap} ({fastest_driver_abbr}) | {year} {event}'
 
 
 # Improve naming
