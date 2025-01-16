@@ -1,6 +1,6 @@
-# 🏎️ F1 Assistant Application (in progress)
+# 🏎️ Data Podium (in progress)
 
-The F1 Assistant Application is a powerful data-driven tool designed to analyze Formula 1 race data. Built using Python, Streamlit, and a Large Language Model (LLM), this application enables users to explore F1 data effortlessly, compare drivers, teams, and events, and uncover exciting insights.
+The Data Podium Application is a powerful data-driven tool designed to analyze Formula 1 race data. Built using Python, NiceGUI, and a Large Language Model (LLM), this application enables users to explore F1 data effortlessly, compare drivers, teams, and events, and uncover exciting insights.
 
 ---
 
