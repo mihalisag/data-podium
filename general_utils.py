@@ -27,8 +27,8 @@ from wiki_utils import *
 # # Only show important warnings
 # fastf1.set_log_level('WARNING')
 
-# Enable fastf1 cache
-fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
+# # Enable fastf1 cache
+# fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
 # A dictionary to store registered functions
 functions_registry: Dict[str, Dict[str, Any]] = {}
@@ -178,7 +178,7 @@ def get_reaction_time(event:str, speed: int, year: int=2024):
 
     reaction_df = pd.DataFrame(driver_reaction_dict.items(), columns=['Driver', 'ReactionTime'])
     reaction_df = reaction_df.sort_values('ReactionTime')
-    reaction_df = reaction_df.head()
+    reaction_df = reaction_df.head() # add more than just five
 
     sorted_drivers = reaction_df['Driver']
     sorted_reaction_times = reaction_df['ReactionTime']

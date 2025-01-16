@@ -326,5 +326,5 @@ def main_page():
     # with ui.card().classes("w-full p-4 shadow-lg"):
     #     result_placeholder = ui.column()  # Placeholder for the rendered result
 
-ui.run()
-# ui.run(host="0.0.0.0", port=5000)
+# ui.run()
+ui.run(host="0.0.0.0", port=8080)
