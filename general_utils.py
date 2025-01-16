@@ -703,7 +703,7 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
             for abbr in drivers:
                 drivers_data[abbr] = session.laps.pick_drivers(abbr).pick_fastest()
                 telemetry_data[abbr] = drivers_data[abbr].get_telemetry()
-                car_data[abbr] = drivers_data[abbr].get_car_data().add_distance()
+                car_data[abbr] = drivers_data[abbr].get_car_data().add_distance() # need to refactor this, check documentation, simpler way
 
             # Call the plot function here
             create_plot(telemetry_data, car_data, metric, driver_colors, session, figures, fastest_bool=True)
