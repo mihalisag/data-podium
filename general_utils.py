@@ -27,8 +27,8 @@ from wiki_utils import *
 # # Only show important warnings
 # fastf1.set_log_level('WARNING')
 
-# # Enable fastf1 cache
-# fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
+# Enable fastf1 cache
+fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
 # A dictionary to store registered functions
 functions_registry: Dict[str, Dict[str, Any]] = {}
