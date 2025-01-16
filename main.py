@@ -21,10 +21,6 @@ def main_page():
     ui.page_title("🏎️ Data Podium")
     ui.colors(primary='#FF1821')#, secondary='#53B689', accent='#111B1E', positive='#53B689')
 
-    # with ui.row():
-    #     ui.markdown("# 🏎️ Data Podium")
-
-
     # global result_placeholder, dynamic_ui_placeholder  # Declare as global variables
 
     # Initialize placeholders

@@ -67,45 +67,6 @@ def register_function(func: Callable) -> Callable:
     }
     return func
 
-# Maybe load them from some variables saved
-# Driver colors codes
-# DRIVER_COLORS = {
-#  'VER': '#0600ef',
-#  'PER': '#0600ef',
-#  'GAS': '#ff87bc',
-#  'OCO': '#ff87bc',
-#  'ALO': '#00665f',
-#  'STR': '#00665f',
-#  'LEC': '#e8002d',
-#  'SAI': '#e8002d',
-#  'SAR': '#00a0dd',
-#  'ALB': '#00a0dd',
-#  'MAG': '#b6babd',
-#  'HUL': '#b6babd',
-#  'TSU': '#364aa9',
-#  'RIC': '#364aa9',
-#  'ZHO': '#00e700',
-#  'BOT': '#00e700',
-#  'NOR': '#ff8000',
-#  'PIA': '#ff8000',
-#  'HAM': '#27f4d2',
-#  'RUS': '#27f4d2',
-#  'BEA': '#b6babd',
-#  'COL': '#00a0dd',
-#  'LAW': '#364aa9'}
-
-# # Team color codes
-# TEAM_COLORS = {
-#  'Red Bull Racing': '#0600ef',
-#  'Ferrari': '#e8002d',
-#  'Mercedes': '#27f4d2',
-#  'McLaren': '#ff8000',
-#  'Aston Martin': '#00665f',
-#  'Kick Sauber': '#00e700',
-#  'Haas F1 Team': '#b6babd',
-#  'RB': '#364aa9',
-#  'Williams': '#00a0dd',
-#  'Alpine': '#ff87bc'}
 
 PREDEF_METRICS = ['Speed', 'Throttle', 'Brake', 'nGear', 'RPM']
 
