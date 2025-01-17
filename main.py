@@ -228,7 +228,7 @@ def main_page():
                         multiple=True,
                         on_change=lambda e: update_selected_value('drivers_list', e.value),
                         # clearable=True # clear selections button
-                    ).props('use-chips').style('width: 300px;')
+                    ).props('use-chips').style('width: 250px;')
 
                 # Handle metrics parameter
                 if 'metrics' in function_parameters:
@@ -237,7 +237,7 @@ def main_page():
                         options=['All'] + PREDEF_METRICS,
                         multiple=True,
                         on_change=lambda e: update_selected_value('metrics', e.value)
-                    ).props('use-chips').style('width: 300px;')
+                    ).props('use-chips').style('width: 200px;')
 
                 # Handle laps parameter
                 if 'laps' in function_parameters:
@@ -254,7 +254,7 @@ def main_page():
                         options=lap_options,
                         # multiple=True,
                         on_change=lambda e: update_selected_value('laps', e.value)
-                    ).props('use-chips').style('width: 300px;')
+                    ).props('use-chips').style('width: 150px;')
 
                 # Handle speed parameter
                 if 'speed' in function_parameters:
@@ -327,4 +327,6 @@ def main_page():
     #     result_placeholder = ui.column()  # Placeholder for the rendered result
 
 # ui.run()
-ui.run(host="0.0.0.0", port=8080)
+# ui.run(host="0.0.0.0", port=8080)
+
+ui.run()

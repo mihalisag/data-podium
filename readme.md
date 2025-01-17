@@ -1,51 +1,66 @@
 # 🏎️ Data Podium (in progress)
 
-The Data Podium Application is a powerful data-driven tool designed to analyze Formula 1 race data. Built using Python, NiceGUI, and a Large Language Model (LLM), this application enables users to explore F1 data effortlessly, compare drivers, teams, and events, and uncover exciting insights.
+
+Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is built using Python with NiceGUI as the UI frontend and fetches data from the FastF1 project. This application enables users to explore Formula 1 data effortlessly, compare drivers and uncover exciting insights.
+
+
+[![Main Screen][main-screen]](images/main_screen.png)
+
 
 ---
 
-## 🚀 Features
+## Features
 
-- **Driver-Level Analysis**: Compare drivers based on speed, lap times, positions, and other metrics.
-- **Team-Level Analysis**: Evaluate team performance and pit stop strategies.
-- **Session Analysis**: Dive into qualifying, race, or practice session statistics.
-- **Event Analysis**: Explore rankings, overtakes, fastest laps, and other race-specific details.
-- **Season Comparisons**: Compare multiple drivers, teams, or events across the season.
-- **Generalized Function Support**: Add new queries easily by extending modular function definitions.
-  
+- **Driver-Level Analysis**: Compare drivers based on telemetry, lap times, positions, and other metrics.
+- **Session Analysis**: Dive into qualifying or race statistics.
+- **Event Analysis**: Explore rankings, fastest laps, and other race-specific details.
+- **Season Comparisons**: Compare multiple drivers across the season.
+- *Soon:* Identify and analyse battles in the track.
+
 ---
 
+## Technologies Used
 
-## 🛠️ Technologies Used
-
-- **Streamlit**: For creating the interactive web application.
-- **Python**: Core programming language for data analysis and function calling.
-- **Large Language Model (LLM)**: For natural language understanding and generating responses.
+- **NiceGUI**: For creating the interactive web application.
 - **Pandas**: Data manipulation and processing.
-- **Matplotlib/Plotly**: Visualization of graphs and statistics.
+- **Plotly**: Visualization of graphs and statistics.
+
 
 ---
 
-## 🔍 How It Works
+<!-- USAGE -->
+## Usage
 
-1. **Natural Language Input**: Users type questions about F1 races (e.g., "Who won the Monaco Grand Prix?").
-2. **LLM Integration**: The model parses the query and maps it to a relevant function (e.g., `get_event_winner`).
-3. **Function Calling**: The appropriate function retrieves data and processes the result.
-4. **Output Visualization**: Results are displayed as text, graphs, or tables in an interactive interface.
+1. Clone the repo
+```sh
+https://github.com/mihalisag/data-podium
+```
+2. Install Python dependencies (need Python 3.11+)
+```sh
+pip install -r requirements.txt
+```
 
----
+3. Run the application
+```sh
+python main.py
+```
 
-## 🧰 Installation Guide
+<!-- ROADMAP -->
+## Roadmap
 
-### Prerequisites
-- Python 3.9+
-- Streamlit
+<!-- LICENSE -->
+## License
+
+Distributed under the Unlicense License. See `LICENSE.txt` for more information.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-## 🌟 Acknowledgments
+
+## Acknowledgments
 
 - Formula 1 for the inspiration.
-- FastF1.
+- [FastF1](https://github.com/theOehrly/Fast-F1) for the data source.
 
 ---
 

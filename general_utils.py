@@ -27,8 +27,8 @@ from wiki_utils import *
 # # Only show important warnings
 # fastf1.set_log_level('WARNING')
 
-# # Enable fastf1 cache
-# fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
+# Enable fastf1 cache
+fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
 # A dictionary to store registered functions
 functions_registry: Dict[str, Dict[str, Any]] = {}
@@ -624,23 +624,26 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
                         opacity=0.15,
                         line_width=0
                     )
-
+        
         if fastest_bool:
-            title_substring = '| '
+            # title_substring = '| '
+            title = '| '
             for abbr in drivers:
                 lap_num, laptime = session.laps.pick_drivers(abbr).pick_fastest()[['LapNumber', 'LapTime']] 
-                title_substring += f'{abbr}: {strftimedelta(laptime, "%m:%s.%ms")} at lap {int(lap_num)} | '
-            title = f'{metric} Graph | {year} {event}'
-            title = f"{title}<br><span style='font-size:16px;'>{title_substring}</span>"
+                title += f'{abbr}: {strftimedelta(laptime, "%m:%s.%ms")} at lap {int(lap_num)} | '
+                # title_substring += f'{abbr}: {strftimedelta(laptime, "%m:%s.%ms")} at lap {int(lap_num)} | '
+            # title = f'{metric} Graph | {year} {event}'
+            # title += '<br><sup>{title_substring}</sup>'
         else:
-            title = f'{metric} Graph | Lap {lap} | {year} {event}'
+            title = f'Lap {lap}'
+            # title = f'{metric} Graph | Lap {lap} | {year} {event}'
+
+
 
         # Add labels and legend
         fig.update_layout(
              title={
                 'text': title,
-                'x': 0.5,  # Centers the title
-                'xanchor': 'center'
             },
             xaxis_title='Distance (m)',
             yaxis_title=metric,
@@ -680,12 +683,12 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
 
     # Create unified telemetry plot
     if all_selection:
-        first_title = figures[0].layout.title.text.split('|')
+        first_title = figures[0].layout.title.text #.split('|')
 
-        if fastest_bool:
-            first_title = '|'.join(first_title[2:4]).lstrip(' ').rstrip(' ')
-        else:
-            first_title = first_title[1].lstrip(' ').rstrip(' ')
+        # if fastest_bool:
+        #     first_title = '|'.join(first_title[2:4]).lstrip(' ').rstrip(' ')
+        # else:
+        #     first_title = first_title[1].lstrip(' ').rstrip(' ')
 
         figures = [fig.update_layout(title=None) for fig in figures]
         figures[0].update_layout(title=first_title)
