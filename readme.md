@@ -4,7 +4,7 @@
 Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is built using Python with NiceGUI as the UI frontend and fetches data from the FastF1 project. This application enables users to explore Formula 1 data effortlessly, compare drivers and uncover exciting insights.
 
 
-[![Main Screen][main-screen]](images/main_screen.png)
+![Main Screen](/images/main_screen.png)
 
 
 ---
@@ -31,19 +31,19 @@ Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is
 <!-- USAGE -->
 ## Usage
 
-1. Clone the repo
-```sh
-https://github.com/mihalisag/data-podium
-```
-2. Install Python dependencies (need Python 3.11+)
-```sh
-pip install -r requirements.txt
-```
+1. Clone the repository:
+    ```sh
+    https://github.com/mihalisag/data-podium
+    ```
+2. Install Python dependencies (need Python 3.11+):
+    ```sh
+    pip install -r requirements.txt
+    ```
 
-3. Run the application
-```sh
-python main.py
-```
+3. Run the application:
+    ```sh
+    python main.py
+    ```
 
 <!-- ROADMAP -->
 ## Roadmap
@@ -52,9 +52,6 @@ python main.py
 ## License
 
 Distributed under the Unlicense License. See `LICENSE.txt` for more information.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 
 
 ## Acknowledgments
