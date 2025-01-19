@@ -135,6 +135,9 @@ def get_schedule_until_now(year: int=2024):
 
     cols = ['RoundNumber', 'EventName', 'Country', 'Location', 'EventDate']
 
+    # # Format the date
+    # schedule.loc[:, 'EventDate'] = schedule['EventDate'].dt.strftime('%d/%m/%Y')
+
     schedule = schedule[cols]
 
     return schedule
