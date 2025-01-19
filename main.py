@@ -7,10 +7,6 @@ from general_utils import *
 from openai import OpenAI
 from nicegui import ui, run # , native
 
-# macOS packaging support
-# from multiprocessing import freeze_support  # noqa
-# freeze_support()  # noqa
-
 # # Multiprocessing freeze
 # import multiprocessing
 # multiprocessing.freeze_support()
@@ -42,23 +38,44 @@ def main_page():
         )
        
 
+    # # Description to function - need to improve AND MAKE SMALLER
+    # desc_to_function = {
+    #     "Season schedule": "get_schedule_until_now",
+    #     "Reaction times at race start.": "get_reaction_time",
+    #     "Fastest lap time": "get_fastest_lap_time_print",
+    #     "Season podium finishes": "get_season_podiums",
+    #     "Race results": "get_race_results",
+    #     # "Output the winner": "get_winner",
+    #     "Race position changes": "get_positions_during_race",
+    #     "Telemetry comparison": "compare_telemetry",
+    #     "Season fastest laps": "fastest_driver_freq_plot",
+    #     "Season qualifying performance": "compare_quali_season",
+    #     "Race lap times": "laptime_plot",
+    #     "Qualifying results": "get_qualifying_results",
+    #     "Lap time distribution": "laptime_distribution_plot",
+    #     "Pit stop information": "get_pit_stops",
+    #     "Race overview": "race_statistics"
+    # }
+
+
+
     # Description to function - need to improve AND MAKE SMALLER
     desc_to_function = {
-        "Season schedule": "get_schedule_until_now",
-        "Reaction times at race start.": "get_reaction_time",
-        "Fastest lap time": "get_fastest_lap_time_print",
-        "Season podium finishes": "get_season_podiums",
         "Race results": "get_race_results",
-        # "Output the winner": "get_winner",
         "Race position changes": "get_positions_during_race",
+        "Race overview": "race_statistics",
+        "Race lap times": "laptime_plot",
+        "Reaction times at race start.": "get_reaction_time",
         "Telemetry comparison": "compare_telemetry",
+        "Lap time distribution": "laptime_distribution_plot",
+        "Qualifying results": "get_qualifying_results",
+        "Fastest lap time": "get_fastest_lap_time_print",
+        "Season schedule": "get_schedule_until_now",
+        "Season podium finishes": "get_season_podiums",
         "Season fastest laps": "fastest_driver_freq_plot",
         "Season qualifying performance": "compare_quali_season",
-        "Race lap times": "laptime_plot",
-        "Qualifying results": "get_qualifying_results",
-        "Lap time distribution": "laptime_distribution_plot",
         "Pit stop information": "get_pit_stops",
-        "Race overview": "race_statistics"
+        # "Output the winner": "get_winner",
     }
 
 
@@ -273,7 +290,8 @@ def main_page():
     def update_grand_prix_list(event):
         year = event.value  # Get the selected year value]
         update_selected_value('year', year)
-        grand_prix_list = [*grand_prix_by_year.get(year, []), 'Season']  # Get the Grand Prix options based on the selected year
+        # grand_prix_list = [*grand_prix_by_year.get(year, []), 'Season']  # Get the Grand Prix options based on the selected year
+        grand_prix_list = grand_prix_by_year.get(year, [])  # Get the Grand Prix options based on the selected year
         selected_gp_dropdown.options = grand_prix_list  # Update the Grand Prix dropdown options
         selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
         selected_gp_dropdown.update()  # Re-render the Grand Prix dropdown to reflect the updated options
@@ -300,7 +318,7 @@ def main_page():
             ).style('width: 150px;')
 
             # Initialize the Grand Prix list based on the default year
-            grand_prix_list = [*grand_prix_by_year.get(selected_values['year'], []), 'Season']
+            grand_prix_list = grand_prix_by_year.get(selected_values['year'], [])
             selected_gp_dropdown = ui.select(
                 label="Select Grand Prix:",
                 options=grand_prix_list,
