@@ -323,23 +323,29 @@ def get_season_podiums(year: int = 2024):
     fig = go.Figure()
 
     fig.add_trace(go.Bar(
-        x=season_podiums_df["Driver"],
-        y=season_podiums_df["Podium Count"],
-        marker=dict(color=bar_colors),
-        # text=season_podiums_df["Podium Count"],  # Show the count on hover
-        # textposition='outside',  # Position text above bars
-        # textfont=dict(size=12)  # Font size of the text
+    x=season_podiums_df["Driver"],
+    y=season_podiums_df["Podium Count"],
+    marker=dict(color=bar_colors),
+    # Uncomment these lines if you'd like to add hover text or labels
+    # text=season_podiums_df["Podium Count"],  # Show the count on hover
+    # textposition='outside',  # Position text above bars
+    # textfont=dict(size=12)  # Font size of the text
     ))
 
     # Update layout
     fig.update_layout(
-        title=f"Podiums for Each Driver | {year} championship",
+        title={
+            'text': f"Podiums for Each Driver | {year} Championship",
+            'x': 0.5,  # Center the title horizontally
+            'xanchor': 'center'
+        },
         xaxis_title="Driver",
         yaxis_title="Podium Count",
-        xaxis=dict(tickangle=45),
         yaxis=dict(tickmode="linear", dtick=1),  # Increment y-axis by 1
+        margin=dict(l=20, r=20, t=50, b=50),  # Reduce margins for centering
+        # Optional: Adjust chart size for a balanced appearance
         height=500,
-        width=800
+        width=800,
     )
 
     return fig
@@ -438,6 +444,7 @@ def get_positions_during_race(event: str, year: int=2024):
                       yaxis=dict(autorange='reversed', tickvals=[1, 5, 10, 15, 20], showgrid=False, zeroline=False), # bug with white line at y=0 fixed
                       font=dict(size=12, family="Arial, sans-serif"),
                       legend_title='Abbreviation',
+                      height=640,
                     #   title_y=0.98,
                         legend=dict(
                             font=dict(size=10),
@@ -446,8 +453,8 @@ def get_positions_during_race(event: str, year: int=2024):
                             y=-0.2,  # Position the legend below the plot
                             xanchor='center',  # Center the legend horizontally
                             x=0.5,  # Place the legend in the middle horizontally
-                        )
-                    )
+                        ),
+                    ),
     return fig
 
 
@@ -1071,6 +1078,7 @@ def laptime_distribution_plot(event: str, year: int=2024):
 
     # Create compound color mapping
     compound_colors = fastf1.plotting.get_compound_mapping(session=session)
+    session_compound_colors = set()
 
     # Create the figure
     fig = go.Figure()
@@ -1081,7 +1089,8 @@ def laptime_distribution_plot(event: str, year: int=2024):
         
         # Use the compound color for the entire driver
         driver_color = driver_data["Compound"].map(compound_colors).mode()[0]  # Use most common compound color
-        
+        session_compound_colors.add(driver_color)
+
         fig.add_trace(go.Violin(
             x=driver_data["Driver"],
             y=driver_data["LapTime(s)"],
@@ -1099,14 +1108,61 @@ def laptime_distribution_plot(event: str, year: int=2024):
 
     # Customize layout
     fig.update_layout(
-        title=f"{year} {event_name} Lap Time Distributions",
+        title={
+            "text": f"{year} {event_name} Lap Time Distributions",
+            "x": 0.5,
+            "y": 0.95,
+            "xanchor": "center",
+            "yanchor": "top"
+        },
         xaxis_title="Driver",
         yaxis_title="Lap Time (s)",
         yaxis=dict(showgrid=True, zeroline=True, zerolinecolor='black'),
-        # plot_bgcolor="white",
         height=600,
         legend_title="Driver",
     )
+
+    # Add the second legend under the title
+    annotations = []
+    spacing = 0.075
+    # spacing = 0.125  # Spacing between legend entries
+
+    # Filter the dictionary
+    filtered_colors = {key: value for key, value in compound_colors.items() if value in session_compound_colors}
+
+    # # Total number of items
+    # n_items = len(filtered_colors)
+
+    # # Centered starting x-position
+    # center_start = 0.5 - (n_items - 1) * spacing / 2
+
+    annotations.append(dict(
+        # x=center_start + i * spacing,  # Start at the centered position
+        x=0,
+        y=-0.2,
+        xref="paper", 
+        yref="paper",
+        text="Compound",
+        showarrow=False,
+        align="center",
+        font=dict(size=12)
+    ))
+
+    # Add annotations, evenly spaced and centered
+    for i, (compound, color) in enumerate(filtered_colors.items()):
+        annotations.append(dict(
+            # x=center_start + i * spacing,  # Start at the centered position
+            x=(i+1)*spacing,
+            y=-0.2,
+            xref="paper", 
+            yref="paper",
+            text=f"<span style='color:{color};'>⬤</span> {compound}",
+            showarrow=False,
+            align="center",
+            font=dict(size=12)
+        ))
+
+    fig.update_layout(annotations=annotations)
 
     return fig
 
