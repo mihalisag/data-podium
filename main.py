@@ -74,6 +74,7 @@ def main_page():
         "Season podium finishes": "get_season_podiums",
         "Season fastest laps": "fastest_driver_freq_plot",
         "Season qualifying performance": "compare_quali_season",
+        "Tyre strategies": "plot_tyre_strategies",
         "Pit stop information": "get_pit_stops",
         # "Output the winner": "get_winner",
     }
@@ -247,14 +248,19 @@ def main_page():
                         # clearable=True # clear selections button
                     ).props('use-chips').style('width: 250px;')
 
+                # # Old functionality: could choose between single metrics
+                # # Handle metrics parameter
+                # if 'metrics' in function_parameters:
+                #     selected_metrics = ui.select(
+                #         label='Select metric(s):',
+                #         options=['All'] + PREDEF_METRICS,
+                #         multiple=True,
+                #         on_change=lambda e: update_selected_value('metrics', e.value)
+                #     ).props('use-chips').style('width: 200px;')
+                
                 # Handle metrics parameter
                 if 'metrics' in function_parameters:
-                    selected_metrics = ui.select(
-                        label='Select metric(s):',
-                        options=['All'] + PREDEF_METRICS,
-                        multiple=True,
-                        on_change=lambda e: update_selected_value('metrics', e.value)
-                    ).props('use-chips').style('width: 200px;')
+                    update_selected_value('metrics', 'All')
 
                 # Handle laps parameter
                 if 'laps' in function_parameters:
