@@ -1300,6 +1300,77 @@ def get_total_laps(event:str, year: int=2024):
 
     return session.total_laps
 
+
+@register_function
+def plot_tyre_strategies(event: str, year: int = 2024):
+    """
+    Plots the tyre strategies for all drivers during a race session using Plotly.
+
+    Parameters:
+        event (str): The specific Grand Prix or event (e.g., 'Hungary').
+        year (int): The year of the race.
+    """
+    # Load the race session
+    session = fastf1.get_session(year, event, 'R')
+    session.load()
+
+    # Retrieve laps and drivers
+    laps = session.laps
+    drivers = session.drivers
+
+    # Convert driver numbers to abbreviations
+    drivers = [session.get_driver(driver)["Abbreviation"] for driver in drivers]
+
+    # Calculate stint lengths and compounds
+    stints = laps[["Driver", "Stint", "Compound", "LapNumber"]]
+    stints = stints.groupby(["Driver", "Stint", "Compound"]).count().reset_index()
+    stints = stints.rename(columns={"LapNumber": "StintLength"})
+
+    # Create Plotly figure
+    fig = go.Figure()
+
+    # Loop through drivers to add their stints to the plot
+    for driver in drivers:
+        driver_stints = stints.loc[stints["Driver"] == driver]
+
+        previous_stint_end = 0
+        for _, row in driver_stints.iterrows():
+            # Get compound color
+            compound_color = fastf1.plotting.get_compound_color(row["Compound"], session=session)
+
+            # Add a horizontal bar for each stint
+            fig.add_trace(
+                go.Bar(
+                    x=[row["StintLength"]],
+                    y=[driver],
+                    orientation='h',
+                    marker=dict(color=compound_color, line=dict(color="black", width=1)),
+                    showlegend=False
+                )
+            )
+
+            previous_stint_end += row["StintLength"]
+
+    # Update layout for better aesthetics
+    fig.update_layout(
+        title=f"{year} {event} Grand Prix | Tyre Strategies",
+        xaxis_title="Lap Number",
+        yaxis_title="Drivers",
+        yaxis=dict(autorange='reversed'),
+        xaxis=dict(showgrid=False),
+        barmode="stack",
+        margin=dict(t=50, l=50, r=50, b=50),
+        height=600,
+    )
+
+    return fig
+
+
+
+
+
+
+
 # Could also print
 # - average lap time and best lap time - driver
 # - average number of pit stops
