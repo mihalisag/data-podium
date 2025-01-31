@@ -8,6 +8,7 @@ from openai import OpenAI
 from nicegui import ui, run # , native
 
 import time
+import threading
 
 # # Multiprocessing freeze
 # import multiprocessing
@@ -313,21 +314,34 @@ def main_page():
                         ).style('width: 300px;')
                         ui.label().bind_text_from(speed_slider, 'value')
 
-
-    # Function to update Grand Prix list and session
-    def update_session(event=None):
-        year = selected_year_dropdown.value
-        event = selected_gp_dropdown.value
+    
+    # Really difficult, need to understand how it works
+    # Function to simulate loading the session and show the spinner
+    def update_session_with_spinner(event=None):
+        # Show the spinner
+        event_spinner.visible = True
         
-        try:
-            session = fastf1.get_session(year, event, 'R')
-            session.load(weather=False, messages=False)
-            print(f"Session loaded for {year} {event}")
-        except Exception as e:
-            print(f"Error loading session: {e}")
-            session = None  # Reset session on failure
+        # Call the blocking update session function in a separate thread to avoid UI freeze
+        def load_session():
+            year = selected_year_dropdown.value
+            event = selected_gp_dropdown.value
 
-        selected_values['session'] = session
+            try:
+                # Simulate the blocking operation
+                session = fastf1.get_session(year, event, 'R')
+                session.load(weather=False, messages=False)  # This is blocking
+                print(f"Session loaded for {year} {event}")
+            except Exception as e:
+                print(f"Error loading session: {e}")
+                session = None  # Reset session on failure
+            
+            selected_values['session'] = session
+
+            # After session is loaded, hide the spinner
+            event_spinner.visible = False
+
+        # Run the loading process in a separate thread to avoid blocking UI
+        threading.Thread(target=load_session).start()
 
 
     # Create the UI layout
@@ -341,11 +355,15 @@ def main_page():
 
         # Application title
         ui.markdown("# 🏎️ Data Podium")
+
+        # Create a spinner widget (initially hidden)
+        event_spinner = ui.spinner(size='lg').style("position: absolute; top: 18px; right: 8px;").classes('ml-2')
+        event_spinner.visible = False
         
         with ui.row():
             # Year dropdown, triggered on change to update Grand Prix options
             selected_year_dropdown = ui.select(
-                label="Select a year:",
+                label="Select year:",
                 options=list(YEARS),
                 value=selected_values['year'],
                 on_change=lambda e: update_selected_value('year', e.value)
@@ -354,12 +372,17 @@ def main_page():
 
             # Initialize the Grand Prix list based on the default year
             grand_prix_list = grand_prix_by_year.get(selected_values['year'], [])
+            
+            # Modify the dropdown to trigger the session load with spinner
             selected_gp_dropdown = ui.select(
-                label="Select Grand Prix:",
+                label="Select event:",
                 options=grand_prix_list,
                 value=selected_values['event'],  # Default value
-                on_change=lambda e: (update_selected_value('event', e.value), update_session())
-            ).style('width: 200px;')
+                on_change=lambda e: (
+                    update_selected_value('event', e.value),  # Update selected value
+                    update_session_with_spinner()  # Trigger session update with spinner
+                )
+            ).style('width: 225px;')
         
             function = ui.select(
                 label="Select a function:",
