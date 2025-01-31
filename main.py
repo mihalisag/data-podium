@@ -11,10 +11,33 @@ from nicegui import ui, run # , native
 # import multiprocessing
 # multiprocessing.freeze_support()
 
+@ui.page('/other_page', dark=True)
+def other_page():
+    ui.link('Main', main_page)
+    ui.markdown('''
+                # About
+                ## Overview
+
+                Data Podium is a data-driven tool designed to analyse Formula 1 race data.
+                
+                It is built using Python with NiceGUI as the UI frontend and fetches data from the FastF1 project.
+
+                This application enables users to explore Formula 1 data effortlessly, compare drivers and uncover exciting insights.
+                
+                ## Data source
+
+                The [FastF1](https://github.com/theOehrly/Fast-F1) module was used as the data source. In addition, some of the functions were inspired by the examples gallery of the FastF1 documentation.
+                
+                ''')
+
 @ui.page('/')
 def main_page():
     
-    ui.page_title("🏎️ Data Podium")
+    ui.link('About', other_page).style("position: absolute; top: 8px; right: 20px;").classes('ml-2')
+
+    ui.html('<div style="height: 10px;"></div>')  # This adds a 10px spacer
+
+    ui.page_title("Data Podium")
     ui.colors(primary='#FF1821')#, secondary='#53B689', accent='#111B1E', positive='#53B689')
 
     # global result_placeholder, dynamic_ui_placeholder  # Declare as global variables
@@ -38,34 +61,13 @@ def main_page():
         )
        
 
-    # # Description to function - need to improve AND MAKE SMALLER
-    # desc_to_function = {
-    #     "Season schedule": "get_schedule_until_now",
-    #     "Reaction times at race start.": "get_reaction_time",
-    #     "Fastest lap time": "get_fastest_lap_time_print",
-    #     "Season podium finishes": "get_season_podiums",
-    #     "Race results": "get_race_results",
-    #     # "Output the winner": "get_winner",
-    #     "Race position changes": "get_positions_during_race",
-    #     "Telemetry comparison": "compare_telemetry",
-    #     "Season fastest laps": "fastest_driver_freq_plot",
-    #     "Season qualifying performance": "compare_quali_season",
-    #     "Race lap times": "laptime_plot",
-    #     "Qualifying results": "get_qualifying_results",
-    #     "Lap time distribution": "laptime_distribution_plot",
-    #     "Pit stop information": "get_pit_stops",
-    #     "Race overview": "race_statistics"
-    # }
-
-
-
     # Description to function - need to improve AND MAKE SMALLER
     desc_to_function = {
         "Race results": "get_race_results",
         "Race position changes": "get_positions_during_race",
         "Race overview": "race_statistics",
         "Race lap times": "laptime_plot",
-        "Reaction times at race start.": "get_reaction_time",
+        "Race start times": "get_reaction_time",
         "Telemetry comparison": "compare_telemetry",
         "Lap time distribution": "laptime_distribution_plot",
         "Qualifying results": "get_qualifying_results",
@@ -128,12 +130,21 @@ def main_page():
         def render_dataframe(df):
             """Helper to render a pandas DataFrame as a table."""
             df_serializable = df.copy()
+
+            # print(df_serializable.dtypes)
+
             for col in df_serializable.select_dtypes(include=['datetime', 'datetimetz']):
                 df_serializable[col] = df_serializable[col].dt.strftime('%Y-%m-%d %H:%M:%S')
-            ui.table(
-                columns=[{'field': col, 'title': col} for col in df_serializable.columns],
-                rows=df_serializable.to_dict('records'),
-            ).style("width: 100%; display: flex; justify-content: center; align-items: center;")
+            
+            # workaround to handle case of season schedule function - can't fix it, shows TypeError
+            if 'EventDate' not in df.columns:
+                ui.table.from_pandas(df.astype(str)).style("width: 100%; display: flex; justify-content: center; align-items: center;")
+
+            else:
+                ui.table(
+                    columns=[{'field': col, 'title': col} for col in df_serializable.columns],
+                    rows=df_serializable.to_dict('records'),
+                ).style("width: 100%; display: flex; justify-content: center; align-items: center;")
 
         def render_item(item):
             """Helper to render a single item based on its type."""
@@ -142,7 +153,7 @@ def main_page():
             elif isinstance(item, pd.DataFrame):
                 render_dataframe(item)
             elif isinstance(item, plt.Figure):
-                ui.pyplot(item)
+                ui.pyplot(item).style('width: 100%; height: 100%;')
             elif isinstance(item, go.Figure):
                 v_grid = True
 
@@ -157,7 +168,7 @@ def main_page():
                     xaxis=dict(showgrid=v_grid, gridcolor="rgba(128,128,128,0.4)", gridwidth=0.75, griddash="dash"),
                     yaxis=dict(showgrid=True, gridcolor="rgba(128,128,128,0.4)", gridwidth=0.75, griddash="dash"),
                 )
-                ui.plotly(item).style('width: 100%; height: 100%;')
+                ui.plotly(item).style("width: 100%; align-items: center;")
             else:
                 ui.label("Unsupported item type.").style("color: orange;")
                 ui.label(str(item)).style("white-space: pre-wrap;")
@@ -284,9 +295,10 @@ def main_page():
                     with ui.row():
                         ui.label('Speed (km/h): ')
                         speed_slider = ui.slider(
+                            value=100, # needs to be same value as the default from the function (?)
                             min=50,
-                            max=250,
-                            step=25,
+                            max=300,
+                            step=10,
                             on_change=lambda e: update_selected_value('speed', e.value)
                         ).style('width: 300px;')
                         ui.label().bind_text_from(speed_slider, 'value')
@@ -353,4 +365,4 @@ def main_page():
 # ui.run()
 # ui.run(host="0.0.0.0", port=8080)
 
-ui.run(host='127.0.0.1', port=8080)
+ui.run(host='127.0.0.1', port=8080, favicon="🏎️")
