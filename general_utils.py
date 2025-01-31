@@ -112,6 +112,31 @@ def format_timedelta(td: pd.Timedelta) -> str:
     return formatted_time
 
 
+def lap_time_df_gen(session, lap, drivers_list: list):
+    '''
+        Generates laptime DataFrame from specific drivers
+    '''
+
+    lap_time_df = pd.DataFrame(columns=['Driver', 'LapNumber', 'LapTime'])
+
+    if lap == 'fastest':
+        for abbr in drivers_list:
+            lap_num, lap_time = session.laps.pick_drivers(abbr).pick_fastest()[['LapNumber', 'LapTime']]
+            lap_time_df.loc[-1] = [abbr, lap_num, lap_time]
+            lap_time_df.index = lap_time_df.index + 1  # shifting index
+            
+    else:
+        lap_time_df = session.laps.pick_drivers(drivers_list).pick_laps(lap)[['Driver', 'LapNumber', 'LapTime']]
+
+    lap_time_df = lap_time_df.reset_index(drop=True)  # reset index
+
+    # Convert to str type
+    lap_time_df.loc[:,'LapTime'] = lap_time_df['LapTime'].astype(str)
+
+    return lap_time_df
+
+
+
 
 ## Telemetry functions
 
@@ -140,6 +165,9 @@ def get_schedule_until_now(year: int=2024):
 
     schedule = schedule[cols]
 
+    # Convert to str
+    schedule = schedule.astype(str)
+
     return schedule
 
 
@@ -158,7 +186,7 @@ def get_reaction_time(event:str, speed: int, year: int=2024):
     if speed == None: speed = 100
 
     session = fastf1.get_session(year, event, 'R')  
-    session.load()
+    session.load(weather=False, messages=False)
 
     drivers_list = session.laps['Driver'].unique()
 
@@ -181,7 +209,7 @@ def get_reaction_time(event:str, speed: int, year: int=2024):
 
     reaction_df = pd.DataFrame(driver_reaction_dict.items(), columns=['Driver', 'ReactionTime'])
     reaction_df = reaction_df.sort_values('ReactionTime')
-    reaction_df = reaction_df.head() # add more than just five
+    # reaction_df = reaction_df.head(10) # add more than just five
 
     sorted_drivers = reaction_df['Driver']
     sorted_reaction_times = reaction_df['ReactionTime']
@@ -213,8 +241,7 @@ def get_reaction_time(event:str, speed: int, year: int=2024):
                 max(sorted_reaction_times) + (max(sorted_reaction_times) - min(sorted_reaction_times)) * 0.1
             ]
         ),  # Add margin to y-axis limits
-        height=500,
-        width=800
+        height=640,
     )
 
     return fig
@@ -231,7 +258,7 @@ def get_fastest_lap_time_result(event: str, year: int=2024):
         year (int): The Grand Prix's year.
     """
     session = fastf1.get_session(year, event, 'R')  
-    session.load()
+    session.load(weather=False, messages=False)
 
     fastest_lap = session.laps.pick_fastest()
 
@@ -272,7 +299,7 @@ def get_driver_colors(session=None, year: int=2024):
 
         for event in events:
             session = fastf1.get_session(year, event, 'R')
-            session.load()
+            session.load(weather=False, messages=False)
 
             # Get driver colors of the session
             temp = fastf1.plotting.get_driver_color_mapping(session=session)
@@ -344,13 +371,14 @@ def get_season_podiums(year: int = 2024):
         yaxis=dict(tickmode="linear", dtick=1),  # Increment y-axis by 1
         margin=dict(l=20, r=20, t=50, b=50),  # Reduce margins for centering
         # Optional: Adjust chart size for a balanced appearance
-        height=500,
-        width=800,
+        height=640,
     )
 
     return fig
 
 # Might need to update with calling session.results or something
+# But it can be slower - check more
+# Can add additional statictics (fastest lap, average lap time, pit stops etc.)
 @register_function
 def get_race_results(event: str, year: int) -> pd.DataFrame:
     """
@@ -360,16 +388,23 @@ def get_race_results(event: str, year: int) -> pd.DataFrame:
         event (str): Name of the Grand Prix.
         year (int): The Grand Prix's year.
     """
-    # Retrieve the correct event name from fastf1
-    event_name = fastf1.get_event(year, event)['EventName']
+    # # Retrieve the correct event name from fastf1
+    # event_name = fastf1.get_event(year, event)['EventName']
 
-    # Load and preprocess results data
-    results_df = (
-        pd.read_csv(f'data/gps_{year}_season_results.csv')
-        .rename(columns={'Abbreviation': 'Driver'})
-        .loc[lambda df: df['EventName'] == event_name]
-        .drop(columns=['EventName'])
-    )
+    # # Load and preprocess results data
+    # results_df = (
+    #     pd.read_csv(f'data/gps_{year}_season_results.csv')
+    #     .rename(columns={'Abbreviation': 'Driver'})
+    #     .loc[lambda df: df['EventName'] == event_name]
+    #     .drop(columns=['EventName'])
+    # )
+
+
+    session = fastf1.get_session(year, event, 'R')  
+    session.load(weather=False, messages=False)
+
+    results_df = session.results
+    results_df = results_df.rename(columns={'Abbreviation': 'Driver'})
 
     results_df = results_df[['Driver', 'ClassifiedPosition', 'Status']]
 
@@ -397,7 +432,7 @@ def get_winner(event: str, year: int) -> str:
 
     # Get full name
     session = fastf1.get_session(year, event, 'R')  
-    session.load()
+    session.load(weather=False, messages=False)
 
     winner = fastf1.plotting.get_driver_name(winner, session)
 
@@ -445,6 +480,7 @@ def get_positions_during_race(event: str, year: int=2024):
                       font=dict(size=12, family="Arial, sans-serif"),
                       legend_title='Abbreviation',
                       height=640,
+                    #   width=800, # if you add a specific width, there are problem with nicegui
                     #   title_y=0.98,
                         legend=dict(
                             font=dict(size=10),
@@ -539,7 +575,7 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
 
     # Load the session data
     session = fastf1.get_session(year, event, 'R')
-    session.load()
+    session.load(weather=False, messages=False)
 
     # Get driver colors
     driver_colors = get_driver_colors(session=session)
@@ -567,6 +603,8 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
     fastest_bool = False
     if laps[0] in ['fastest', 'quickest', 'best']: fastest_bool = True
 
+    lap_time_df = lap_time_df_gen(session, laps[0], drivers_list)
+
     def create_plot(telemetry_data, car_data, metric, driver_colors, session, figures, fastest_bool, lap=None):
         """
             Subfunction to generate the plots
@@ -587,6 +625,7 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
                     line=dict(color=driver_colors[driver_abbr])
                 )
             )
+
 
         # Plot corner information
         circuit_info = session.get_circuit_info()
@@ -635,32 +674,37 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
                         line_width=0
                     )
         
-        if fastest_bool:
-            # title_substring = '| '
-            title = '| '
-            for abbr in drivers:
-                lap_num, laptime = session.laps.pick_drivers(abbr).pick_fastest()[['LapNumber', 'LapTime']] 
-                title += f'{abbr}: {strftimedelta(laptime, "%m:%s.%ms")} at lap {int(lap_num)} | '
-                # title_substring += f'{abbr}: {strftimedelta(laptime, "%m:%s.%ms")} at lap {int(lap_num)} | '
-            # title = f'{metric} Graph | {year} {event}'
-            # title += '<br><sup>{title_substring}</sup>'
-        else:
-            title = f'Lap {lap}'
-            # title = f'{metric} Graph | Lap {lap} | {year} {event}'
+        # # Old implementation - added driver lap times in title
+        # if fastest_bool:
+        #     # title_substring = '| '
+        #     title = '| '
+        #     for abbr in drivers:
+        #         lap_num, lap_time = session.laps.pick_drivers(abbr).pick_fastest()[['LapNumber', 'LapTime']] 
+        #         title += f'{abbr}: {strftimedelta(lap_time, "%m:%s.%ms")} at lap {int(lap_num)} | '
 
+                
+        #         # title_substring += f'{abbr}: {strftimedelta(lap_time, "%m:%s.%ms")} at lap {int(lap_num)} | '
+        #     # title = f'{metric} Graph | {year} {event}'
+        #     # title += '<br><sup>{title_substring}</sup>'
+        # else:
+        #     title = f'Lap {lap}'
+        #     # title = f'{metric} Graph | Lap {lap} | {year} {event}'
 
 
         # Add labels and legend
         fig.update_layout(
-             title={
-                'text': title,
-            },
+            #  title={
+            #     'text': title,
+            # },
             xaxis_title='Distance (m)',
             yaxis_title=metric,
             legend_title='Drivers',
             xaxis=dict(zeroline=False),
             yaxis=dict(zeroline=False),            
         )
+
+        if metric == 'Speed':
+            fig.update_layout(yaxis_title='Speed (km/h)')
 
         # Store the figure
         figures.append(fig)
@@ -703,7 +747,7 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
         figures = [fig.update_layout(title=None) for fig in figures]
         figures[0].update_layout(title=first_title)
 
-    return figures
+    return [lap_time_df, *figures]
 
 
 
@@ -932,7 +976,7 @@ def laptime_plot(event: str, drivers_list: list = [], year: int = 2024):
 
     # Load a specific race session
     session = fastf1.get_session(year, event, 'R')
-    session.load()
+    session.load(weather=False, messages=False)
 
     # Get driver colors of the session
     driver_colors = get_driver_colors(session=session, year=year)
@@ -987,7 +1031,7 @@ def get_qualifying_results(event: str, year: int = 2024):
         year (int): Year of the Grand Prix.
     """
     session = fastf1.get_session(year, event, 'Q')
-    session.load()
+    session.load(weather=False, messages=False)
 
     list_fastest_laps = []
     for drv in session.drivers:
@@ -1055,7 +1099,7 @@ def laptime_distribution_plot(event: str, year: int=2024):
     """
     # Load the race session
     session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race
-    session.load()
+    session.load(weather=False, messages=False)
 
     # Retrieve the correct event name from fastf1
     event_name = fastf1.get_event(year, event)['EventName']
@@ -1181,7 +1225,7 @@ def get_pit_stops(event: str, year: int=2024):
     """
     
     session = fastf1.get_session(year, event, 'R')
-    session.load()
+    session.load(weather=False, messages=False)
 
     # Create an instance of the Ergast class
     ergast = Ergast()
@@ -1224,7 +1268,7 @@ def get_wikipedia_text(event: str, year: int=2024):
     """
 
     session = fastf1.get_session(year, event, 'R')
-    session.load()
+    session.load(weather=False, messages=False)
 
     # race_names = race_names_gen(year=year)
 
@@ -1245,7 +1289,7 @@ def get_drivers(event: str, year: int=2024):
     """
 
     session = fastf1.get_session(year, event, 'R')
-    session.load()
+    session.load(weather=False, messages=False)
 
     # drivers = session.drivers
     # drivers = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers]
@@ -1277,7 +1321,7 @@ def race_statistics(event: str, year: int=2024):
     try:
         # Load the session
         session = fastf1.get_session(year, event, 'R')
-        session.load()
+        session.load(weather=False, messages=False)
         
         short_text = get_wikipedia_text(event, year)
 
@@ -1296,11 +1340,12 @@ def get_total_laps(event:str, year: int=2024):
 
     # Load the session
     session = fastf1.get_session(year, event, 'R')
-    session.load()
+    session.load(weather=False, messages=False)
 
     return session.total_laps
 
 
+# Based on example function from FastF1
 @register_function
 def plot_tyre_strategies(event: str, year: int = 2024):
     """
@@ -1312,7 +1357,7 @@ def plot_tyre_strategies(event: str, year: int = 2024):
     """
     # Load the race session
     session = fastf1.get_session(year, event, 'R')
-    session.load()
+    session.load(weather=False, messages=False)
 
     # Retrieve laps and drivers
     laps = session.laps
@@ -1366,6 +1411,34 @@ def plot_tyre_strategies(event: str, year: int = 2024):
     return fig
 
 
+
+# @register_function
+# def lap_time_df_gen(event: str, drivers_list: list, year: int = 2024, lap=12, fastest_bool=False):
+#     '''
+#         Generates laptime DataFrame from specific drivers
+#     '''
+
+#     # Load the race session
+#     session = fastf1.get_session(year, event, 'R')
+#     session.load()
+
+#     lap_time_df = pd.DataFrame(columns=['Driver', 'LapNumber', 'LapTime'])
+
+#     if lap == 'fastest':
+#         for abbr in drivers_list:
+#             lap_num, lap_time = session.laps.pick_drivers(abbr).pick_fastest()[['LapNumber', 'LapTime']]
+#             lap_time_df.loc[-1] = [abbr, lap_num, lap_time]
+#             lap_time_df.index = lap_time_df.index + 1  # shifting index
+            
+#     else:
+#         lap_time_df = session.laps.pick_drivers(drivers_list).pick_laps(lap)[['Driver', 'LapNumber', 'LapTime']]
+
+#     lap_time_df = lap_time_df.reset_index(drop=True)  # reset index
+
+#     # Convert to str type
+#     lap_time_df.loc[:,'LapTime'] = lap_time_df['LapTime'].astype(str)
+
+#     return lap_time_df
 
 
 
