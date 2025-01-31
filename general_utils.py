@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 
@@ -172,7 +173,7 @@ def get_schedule_until_now(year: int=2024):
 
 
 @register_function
-def get_reaction_time(event:str, speed: int, year: int=2024):
+def get_reaction_time(session, speed: int):#(event:str, speed: int, year: int=2024):
     """
     Retrieves the reaction time of drivers to reach a specific speed at the start of the race.
 
@@ -185,8 +186,10 @@ def get_reaction_time(event:str, speed: int, year: int=2024):
 
     if speed == None: speed = 100
 
-    session = fastf1.get_session(year, event, 'R')  
-    session.load(weather=False, messages=False)
+    # session = fastf1.get_session(year, event, 'R')  
+    # session.load(weather=False, messages=False)
+
+    year = session.date.year
 
     drivers_list = session.laps['Driver'].unique()
 
@@ -215,7 +218,7 @@ def get_reaction_time(event:str, speed: int, year: int=2024):
     sorted_reaction_times = reaction_df['ReactionTime']
 
     # Get driver colors of the session
-    driver_colors = get_driver_colors(session=session, year=year)
+    driver_colors = get_driver_colors(session=session)
     bar_colors = [driver_colors[driver] for driver in sorted_drivers]
 
     # Create a Plotly bar chart
@@ -249,7 +252,7 @@ def get_reaction_time(event:str, speed: int, year: int=2024):
     
 
 # @register_function
-def get_fastest_lap_time_result(event: str, year: int=2024):
+def get_fastest_lap_time_result(session): #(event: str, year: int=2024):
     """
     Finds the fastest lap time for a specific Grand Prix or event and returns relevant details.
 
@@ -257,8 +260,10 @@ def get_fastest_lap_time_result(event: str, year: int=2024):
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         year (int): The Grand Prix's year.
     """
-    session = fastf1.get_session(year, event, 'R')  
-    session.load(weather=False, messages=False)
+
+
+    # session = fastf1.get_session(year, event, 'R')  
+    # session.load(weather=False, messages=False)
 
     fastest_lap = session.laps.pick_fastest()
 
@@ -285,38 +290,29 @@ def get_fastest_lap_time_print(event: str, year: int=2024):
     return sentence
 
 
-def get_driver_colors(session=None, year: int=2024):
+def get_driver_colors(session): #(session=None, year: int=2024):
     """
         Returns the driver colors for a specific session or the season
     """
-
-    if session != None:
-        # Get driver colors of the session
-        driver_colors = fastf1.plotting.get_driver_color_mapping(session=session)
-    else:
-        events = list(get_schedule_until_now(year)['EventName'])
-        driver_colors = dict()
-
-        for event in events:
-            session = fastf1.get_session(year, event, 'R')
-            session.load(weather=False, messages=False)
-
-            # Get driver colors of the session
-            temp = fastf1.plotting.get_driver_color_mapping(session=session)
-            driver_colors.update(temp)
+    
+    # Get driver colors of the session
+    driver_colors = fastf1.plotting.get_driver_color_mapping(session=session)
 
     return driver_colors
 
 
 # FIX: the driver colors change by year, check plotting color function
+# Now new problem with session - year thing, check again (31/1)
 @register_function
-def get_season_podiums(year: int = 2024):
+def get_season_podiums(session):
     """
     Retrieves the podium finishes for all races in a season and visualizes them using Plotly.
 
     Parameters:
         year (int): The season's year.
-    """
+    """ 
+
+    year = session.date.year
 
     # Load and preprocess results data
     results_df = (
@@ -343,7 +339,7 @@ def get_season_podiums(year: int = 2024):
     season_podiums_df.columns = ['Driver', 'Podium Count']
 
     # Get driver colors of the session
-    driver_colors = get_driver_colors(year=year)
+    driver_colors = get_driver_colors(session)
     bar_colors = [driver_colors.get(driver, 'gray') for driver in season_podiums_df["Driver"]]
 
     # Create a Plotly bar chart
@@ -380,7 +376,7 @@ def get_season_podiums(year: int = 2024):
 # But it can be slower - check more
 # Can add additional statictics (fastest lap, average lap time, pit stops etc.)
 @register_function
-def get_race_results(event: str, year: int) -> pd.DataFrame:
+def get_race_results(session): #(event: str, year: int) -> pd.DataFrame:
     """
     Retrieves the race results or final positions for a specific Grand Prix.
 
@@ -388,20 +384,6 @@ def get_race_results(event: str, year: int) -> pd.DataFrame:
         event (str): Name of the Grand Prix.
         year (int): The Grand Prix's year.
     """
-    # # Retrieve the correct event name from fastf1
-    # event_name = fastf1.get_event(year, event)['EventName']
-
-    # # Load and preprocess results data
-    # results_df = (
-    #     pd.read_csv(f'data/gps_{year}_season_results.csv')
-    #     .rename(columns={'Abbreviation': 'Driver'})
-    #     .loc[lambda df: df['EventName'] == event_name]
-    #     .drop(columns=['EventName'])
-    # )
-
-
-    session = fastf1.get_session(year, event, 'R')  
-    session.load(weather=False, messages=False)
 
     results_df = session.results
     results_df = results_df.rename(columns={'Abbreviation': 'Driver'})
@@ -412,7 +394,7 @@ def get_race_results(event: str, year: int) -> pd.DataFrame:
 
 # Need to make this faster, use results from another function
 @register_function
-def get_winner(event: str, year: int) -> str:
+def get_winner(session): #(event: str, year: int) -> str:
     """
     Find the winner of a specific Grand Prix or race.
     
@@ -420,6 +402,8 @@ def get_winner(event: str, year: int) -> str:
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         year (int): The Grand Prix's year.
     """
+    year = session.date.year
+    event = session.session_info['Meeting']['Name']
 
     # Retrieve the correct event name from fastf1
     event_name = fastf1.get_event(year, event)['EventName']
@@ -430,10 +414,6 @@ def get_winner(event: str, year: int) -> str:
     # Identify the winner (driver with ClassifiedPosition == '1')
     winner = race_results_df.loc[race_results_df['ClassifiedPosition'] == '1', 'Driver'].iloc[0]
 
-    # Get full name
-    session = fastf1.get_session(year, event, 'R')  
-    session.load(weather=False, messages=False)
-
     winner = fastf1.plotting.get_driver_name(winner, session)
 
     return f"{winner} won the {year} {event_name}"
@@ -441,7 +421,7 @@ def get_winner(event: str, year: int) -> str:
 
 # New implementation (inspired by fastf1 existing implementation) - no subset of drivers (could filter out with plotly?)
 @register_function
-def get_positions_during_race(event: str, year: int=2024):
+def get_positions_during_race(session): #(event: str, year: int=2024):
     """
     Show positions of drivers throughout a race using Plotly.
 
@@ -450,8 +430,11 @@ def get_positions_during_race(event: str, year: int=2024):
         year (int): The Grand Prix's year.
     """
 
-    session = fastf1.get_session(year, event, 'R')
-    session.load(telemetry=False, weather=False)
+    # session = fastf1.get_session(year, event, 'R')
+    # session.load(telemetry=False, weather=False)
+
+    year = session.date.year
+    event = session.session_info['Meeting']['Name']
 
     # Create a Plotly figure
     fig = go.Figure()
@@ -553,7 +536,7 @@ def get_drs_zones(car_data):
 
 # Add fasatest lap time as subtitle in plot for each driver
 @register_function
-def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list, year: int = 2024):
+def compare_telemetry(session, drivers_list: list, metrics: list, laps: list):
     """
     Compares/plots telemetry data (e.g., 'speed', 'throttle', 'brake', 'gear') for given drivers, metrics, and laps.
 
@@ -573,9 +556,9 @@ def compare_telemetry(event: str, drivers_list: list, metrics: list, laps: list,
     if isinstance(laps, (int, str)):
         laps = [laps]
 
-    # Load the session data
-    session = fastf1.get_session(year, event, 'R')
-    session.load(weather=False, messages=False)
+
+    year = session.date.year
+    event = session.session_info['Meeting']['Name']
 
     # Get driver colors
     driver_colors = get_driver_colors(session=session)
@@ -964,7 +947,7 @@ def compare_quali_season(drivers_list: list, year: int=2024):
 # change color of second driver if in same team (see season qualifying performance function)
 # show laptimes in correct format
 @register_function
-def laptime_plot(event: str, drivers_list: list = [], year: int = 2024):
+def laptime_plot(session, drivers_list=[]):#(event: str, drivers_list: list = [], year: int = 2024):
     """
     Generates a line plot of the lap times of specified drivers in a specific Grand Prix using Plotly.
 
@@ -974,12 +957,11 @@ def laptime_plot(event: str, drivers_list: list = [], year: int = 2024):
         year (int): The Grand Prix's year.
     """
 
-    # Load a specific race session
-    session = fastf1.get_session(year, event, 'R')
-    session.load(weather=False, messages=False)
+    year = session.date.year
+    event = session.session_info['Meeting']['Name']
 
     # Get driver colors of the session
-    driver_colors = get_driver_colors(session=session, year=year)
+    driver_colors = get_driver_colors(session=session)
 
     if not drivers_list:
         drivers_list = session.drivers
@@ -1021,6 +1003,7 @@ def laptime_plot(event: str, drivers_list: list = [], year: int = 2024):
 
 # Might need to also check the classified grid starting position if needed?
 # Inspired by fastf1
+# NEED TO FIX AND PUT SESSION BUT PROBLEMS DUE TO 'Q'
 @register_function
 def get_qualifying_results(event: str, year: int = 2024):
     """
@@ -1089,7 +1072,7 @@ def get_qualifying_results(event: str, year: int = 2024):
 # Inspired by the fastf1 example function
 # Has a bug with compound colors
 @register_function
-def laptime_distribution_plot(event: str, year: int=2024):
+def laptime_distribution_plot(session): #(event: str, year: int=2024):
     """
     Generates a violin plot of the lap time distributions for the top 10 point finishers in a specified Grand Prix using Plotly.
     
@@ -1097,9 +1080,9 @@ def laptime_distribution_plot(event: str, year: int=2024):
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
         year (int): The Grand Prix's year.
     """
-    # Load the race session
-    session = fastf1.get_session(year, event, 'R')  # 'R' indicates the race
-    session.load(weather=False, messages=False)
+
+    year = session.date.year
+    event = session.session_info['Meeting']['Name']
 
     # Retrieve the correct event name from fastf1
     event_name = fastf1.get_event(year, event)['EventName']
@@ -1214,7 +1197,7 @@ def laptime_distribution_plot(event: str, year: int=2024):
     
 # temporary before I make another one to make it look nicer
 @register_function
-def get_pit_stops(event: str, year: int=2024):
+def get_pit_stops(session): #(event: str, year: int=2024):
     """
         Returns the pit stops of a specific race.
 
@@ -1224,8 +1207,7 @@ def get_pit_stops(event: str, year: int=2024):
 
     """
     
-    session = fastf1.get_session(year, event, 'R')
-    session.load(weather=False, messages=False)
+    year = session.date.year
 
     # Create an instance of the Ergast class
     ergast = Ergast()
@@ -1262,13 +1244,13 @@ def get_pit_stops(event: str, year: int=2024):
 
 
 
-def get_wikipedia_text(event: str, year: int=2024):
+def get_wikipedia_text(session): #(event: str, year: int=2024):
     """
         Returns wikipedia race report
     """
 
-    session = fastf1.get_session(year, event, 'R')
-    session.load(weather=False, messages=False)
+    year = session.date.year
+    event = session.session_info['Meeting']['Name']
 
     # race_names = race_names_gen(year=year)
 
@@ -1283,13 +1265,10 @@ def get_wikipedia_text(event: str, year: int=2024):
     return short_text
 
 
-def get_drivers(event: str, year: int=2024):
+def get_drivers(session): #(event: str, year: int=2024):
     """
         Get drivers and their colors for specific event
     """
-
-    session = fastf1.get_session(year, event, 'R')
-    session.load(weather=False, messages=False)
 
     # drivers = session.drivers
     # drivers = [fastf1.plotting.get_driver_abbreviation(driver, session) for driver in drivers]
@@ -1309,7 +1288,7 @@ def get_drivers(event: str, year: int=2024):
 # - which "round" it is of the schedule
 # - have an option for whole season
 @register_function
-def race_statistics(event: str, year: int=2024):
+def race_statistics(session): #(event: str, year: int=2024):
     """
     Fetches and displays basic statistics about a Formula 1 race.
     
@@ -1319,11 +1298,8 @@ def race_statistics(event: str, year: int=2024):
     """
 
     try:
-        # Load the session
-        session = fastf1.get_session(year, event, 'R')
-        session.load(weather=False, messages=False)
         
-        short_text = get_wikipedia_text(event, year)
+        short_text = get_wikipedia_text(session) #(event, year)
 
         return short_text
     
@@ -1333,21 +1309,17 @@ def race_statistics(event: str, year: int=2024):
 # Return parameters of function
 func_param_gen = lambda f : dict(inspect.signature(f).parameters.items()).keys()
 
-def get_total_laps(event:str, year: int=2024):
+def get_total_laps(session): #(event:str, year: int=2024):
     """
         Returns total laps number of a race
     """
-
-    # Load the session
-    session = fastf1.get_session(year, event, 'R')
-    session.load(weather=False, messages=False)
 
     return session.total_laps
 
 
 # Based on example function from FastF1
 @register_function
-def plot_tyre_strategies(event: str, year: int = 2024):
+def plot_tyre_strategies(session): #(event: str, year: int = 2024):
     """
     Plots the tyre strategies for all drivers during a race session using Plotly.
 
@@ -1355,9 +1327,8 @@ def plot_tyre_strategies(event: str, year: int = 2024):
         event (str): The specific Grand Prix or event (e.g., 'Hungary').
         year (int): The year of the race.
     """
-    # Load the race session
-    session = fastf1.get_session(year, event, 'R')
-    session.load(weather=False, messages=False)
+    year = session.date.year
+    event = session.session_info['Meeting']['Name']
 
     # Retrieve laps and drivers
     laps = session.laps
@@ -1398,7 +1369,7 @@ def plot_tyre_strategies(event: str, year: int = 2024):
 
     # Update layout for better aesthetics
     fig.update_layout(
-        title=f"{year} {event} Grand Prix | Tyre Strategies",
+        title=f"{year} {event} | Tyre Strategies",
         xaxis_title="Lap Number",
         yaxis_title="Drivers",
         yaxis=dict(autorange='reversed'),
@@ -1409,6 +1380,33 @@ def plot_tyre_strategies(event: str, year: int = 2024):
     )
 
     return fig
+
+
+# TIME ANALYSIS
+
+# File to store loading times
+CSV_FILE = "loading_times.csv"
+
+def load_times():
+    """Load existing times from the CSV file, or return an empty DataFrame if not found."""
+    if os.path.exists(CSV_FILE):
+        return pd.read_csv(CSV_FILE)
+    return pd.DataFrame(columns=["Function", "Time (s)"])
+
+def log_time(function_name, time_taken):
+    """Log the function time, updating if already present or adding a new entry."""
+    df = load_times()
+
+    # Check if function already exists
+    if function_name in df["Function"].values:
+        df.loc[df["Function"] == function_name, "Time (s)"] = time_taken
+    else:
+        new_entry = pd.DataFrame({"Function": [function_name], "Time (s)": [time_taken]})
+        df = pd.concat([df, new_entry], ignore_index=True)
+
+    # Save the updated DataFrame back to CSV
+    df.to_csv(CSV_FILE, index=False)
+    print(f"Logged: {function_name} -> {time_taken:.2f} sec")
 
 
 

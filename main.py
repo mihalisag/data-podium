@@ -7,9 +7,12 @@ from general_utils import *
 from openai import OpenAI
 from nicegui import ui, run # , native
 
+import time
+
 # # Multiprocessing freeze
 # import multiprocessing
 # multiprocessing.freeze_support()
+
 
 @ui.page('/other_page', dark=True)
 def other_page():
@@ -112,7 +115,12 @@ def main_page():
         'speed': None,
         'year': list(YEARS)[-1],  # Default to the latest year
         'event': grand_prix_by_year[list(YEARS)[-1]][0],  # Default to the first Grand Prix of the latest year
+        'session': fastf1.get_session(list(YEARS)[-1], grand_prix_by_year[list(YEARS)[-1]][0], 'R'), # Default session
     }
+
+    # Load default session
+    selected_values['session'].load(weather=False, messages=False)
+
 
     def update_selected_value(key, value):
         """Update the selected values dictionary."""
@@ -187,10 +195,18 @@ def main_page():
                 for item in result_list:
                     render_item(item)
 
+
     async def execute_function():
         """
         Execute the selected function and display the result in the second card.
         """
+
+        # # this to find optimal position in code
+        # session = update_session()
+        # selected_values['session'] = session
+
+        start = time.time()
+        # print(f"START TIME: {start}")
 
         function_name = desc_to_function[function.value]  # Get the selected function name
         print(f"Executing {function_name} with parameters: {selected_values}")
@@ -223,6 +239,10 @@ def main_page():
 
             # Notify the user of the error
             ui.notify(f"Execution failed: {e}", color="red")
+        
+        duration = time.time() - start
+        print(f"DURATION: {duration}s")
+        log_time(function_name, duration)
 
 
     # Function select handler
@@ -248,7 +268,7 @@ def main_page():
                 if 'drivers_list' in function_parameters:
                     spinner = ui.spinner(size='lg').style("position: absolute; top: 8px; right: 8px;").classes('ml-2')  # Display spinner
                     drivers, driver_colors = await run.io_bound(
-                        get_drivers, selected_gp_dropdown.value, selected_year_dropdown.value
+                        get_drivers, selected_values['session'] # did change here with session 
                     )
                     spinner.delete()  # Remove spinner when done
                     selected_drivers = ui.select(
@@ -259,16 +279,6 @@ def main_page():
                         # clearable=True # clear selections button
                     ).props('use-chips').style('width: 250px;')
 
-                # # Old functionality: could choose between single metrics
-                # # Handle metrics parameter
-                # if 'metrics' in function_parameters:
-                #     selected_metrics = ui.select(
-                #         label='Select metric(s):',
-                #         options=['All'] + PREDEF_METRICS,
-                #         multiple=True,
-                #         on_change=lambda e: update_selected_value('metrics', e.value)
-                #     ).props('use-chips').style('width: 200px;')
-                
                 # Handle metrics parameter
                 if 'metrics' in function_parameters:
                     update_selected_value('metrics', 'All')
@@ -277,7 +287,7 @@ def main_page():
                 if 'laps' in function_parameters:
                     spinner = ui.spinner(size='lg').style("position: absolute; top: 8px; right: 8px;").classes('ml-2')  # Display spinner
                     total_laps = await run.io_bound(
-                        get_total_laps, selected_gp_dropdown.value, selected_year_dropdown.value
+                        get_total_laps, selected_values['session'] # did change here with session 
                     )
                     spinner.delete()  # Remove spinner when done
                     lap_options = ['fastest'] + [i for i in range(1, total_laps + 1)]
@@ -304,15 +314,21 @@ def main_page():
                         ui.label().bind_text_from(speed_slider, 'value')
 
 
-    # Function to update the Grand Prix list based on the selected year
-    def update_grand_prix_list(event):
-        year = event.value  # Get the selected year value]
-        update_selected_value('year', year)
-        # grand_prix_list = [*grand_prix_by_year.get(year, []), 'Season']  # Get the Grand Prix options based on the selected year
-        grand_prix_list = grand_prix_by_year.get(year, [])  # Get the Grand Prix options based on the selected year
-        selected_gp_dropdown.options = grand_prix_list  # Update the Grand Prix dropdown options
-        selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
-        selected_gp_dropdown.update()  # Re-render the Grand Prix dropdown to reflect the updated options
+    # Function to update Grand Prix list and session
+    def update_session(event=None):
+        year = selected_year_dropdown.value
+        event = selected_gp_dropdown.value
+        
+        try:
+            session = fastf1.get_session(year, event, 'R')
+            session.load(weather=False, messages=False)
+            print(f"Session loaded for {year} {event}")
+        except Exception as e:
+            print(f"Error loading session: {e}")
+            session = None  # Reset session on failure
+
+        selected_values['session'] = session
+
 
     # Create the UI layout
     with ui.card().classes("w-full p-4 shadow-lg"):
@@ -331,9 +347,10 @@ def main_page():
             selected_year_dropdown = ui.select(
                 label="Select a year:",
                 options=list(YEARS),
-                value=selected_values['year'],  # Default value
-                on_change=update_grand_prix_list  # Call update_grand_prix_list when the year changes
+                value=selected_values['year'],
+                on_change=lambda e: update_selected_value('year', e.value)
             ).style('width: 150px;')
+
 
             # Initialize the Grand Prix list based on the default year
             grand_prix_list = grand_prix_by_year.get(selected_values['year'], [])
@@ -341,20 +358,23 @@ def main_page():
                 label="Select Grand Prix:",
                 options=grand_prix_list,
                 value=selected_values['event'],  # Default value
-                on_change=lambda e: update_selected_value('event', e.value)
+                on_change=lambda e: (update_selected_value('event', e.value), update_session())
             ).style('width: 200px;')
-
+        
             function = ui.select(
                 label="Select a function:",
                 options=list(desc_to_function.keys()),
-                on_change=function_select,
+                on_change=function_select ,
             ).style('width: 250px;')
 
             # Place the "Execute" button on the first card
             ui.button("Show results", on_click=execute_function).style("position: absolute; bottom: 12.5px; right: 12.5px; margin-top: 12px;").classes('ml-2')
     
+    
     result_placeholder = ui.column().style("width: 100%;") # Placeholder for the rendered result
 
+
+    
             # # Display Result button
             # ui.button("Display Result", on_click=display_result)
 
