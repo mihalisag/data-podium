@@ -10,6 +10,7 @@ from nicegui import ui, run # , native
 import time
 import threading
 
+
 # # Multiprocessing freeze
 # import multiprocessing
 # multiprocessing.freeze_support()
@@ -119,9 +120,11 @@ def main_page():
         'session': fastf1.get_session(list(YEARS)[-1], grand_prix_by_year[list(YEARS)[-1]][0], 'R'), # Default session
     }
 
-    # Load default session
-    selected_values['session'].load(weather=False, messages=False)
 
+    # # Load default session
+    # selected_values['session'].load(weather=False, messages=False)
+
+   
     def update_selected_value(key, value):
         """Update the selected values dictionary."""
         selected_values[key] = value
@@ -387,7 +390,7 @@ def main_page():
             selected_gp_dropdown = ui.select(
                 label="Select event:",
                 options=grand_prix_list,
-                value=selected_values['event'],  # Default value
+                # value=selected_values['event'],  # Default value
                 on_change=lambda e: (
                     update_selected_value('event', e.value),  # Update selected value
                     update_session_with_spinner()  # Trigger session update with spinner
@@ -419,3 +422,5 @@ def main_page():
 # ui.run(host="0.0.0.0", port=8080)
 
 ui.run(host='127.0.0.1', port=8080, favicon="🏎️")
+
+
