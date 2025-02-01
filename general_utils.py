@@ -276,7 +276,7 @@ def get_fastest_lap_time_result(session): #(event: str, year: int=2024):
     
 
 @register_function
-def get_fastest_lap_time_print(event: str, year: int=2024):
+def get_fastest_lap_time_print(session):
     """
     Finds and prints the fastest lap time for a specific Grand Prix or event.
 
@@ -284,7 +284,7 @@ def get_fastest_lap_time_print(event: str, year: int=2024):
         event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
     """
 
-    driver, lap_num, lap_time = get_fastest_lap_time_result(event, year)
+    driver, lap_num, lap_time = get_fastest_lap_time_result(session)
     sentence = f"{driver} had the fastest lap time of {lap_time} at lap {lap_num}."
 
     return sentence

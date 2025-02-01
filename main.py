@@ -122,7 +122,6 @@ def main_page():
     # Load default session
     selected_values['session'].load(weather=False, messages=False)
 
-
     def update_selected_value(key, value):
         """Update the selected values dictionary."""
         selected_values[key] = value
@@ -344,6 +343,17 @@ def main_page():
         threading.Thread(target=load_session).start()
 
 
+     # Function to update the Grand Prix list based on the selected year
+    def update_grand_prix_list(event):
+        year = event.value  # Get the selected year value]
+        update_selected_value('year', year)
+        # grand_prix_list = [*grand_prix_by_year.get(year, []), 'Season']  # Get the Grand Prix options based on the selected year
+        grand_prix_list = grand_prix_by_year.get(year, [])  # Get the Grand Prix options based on the selected year
+        selected_gp_dropdown.options = grand_prix_list  # Update the Grand Prix dropdown options
+        selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
+        selected_gp_dropdown.update()  # Re-render the Grand Prix dropdown to reflect the updated options
+
+
     # Create the UI layout
     with ui.card().classes("w-full p-4 shadow-lg"):
         # Enable dark mode
@@ -366,7 +376,7 @@ def main_page():
                 label="Select year:",
                 options=list(YEARS),
                 value=selected_values['year'],
-                on_change=lambda e: update_selected_value('year', e.value)
+                on_change=update_grand_prix_list
             ).style('width: 150px;')
 
 
