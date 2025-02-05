@@ -1116,9 +1116,8 @@ def get_qualifying_results(event: str, year: int = 2024):
     return fig
 
 # Inspired by the fastf1 example function
-# Has a bug with compound colors
 @register_function
-def laptime_distribution_plot(session): #(event: str, year: int=2024):
+def laptime_distribution_plot(session):
     """
     Generates a violin plot of the lap time distributions for the top 10 point finishers in a specified Grand Prix using Plotly.
     
@@ -1179,7 +1178,13 @@ def laptime_distribution_plot(session): #(event: str, year: int=2024):
             )
         ))
 
-    # Customize layout
+    # Define y-axis ticks in laptime_std steps
+    laptime_std = driver_laps["LapTime(s)"].std()
+    y_min = driver_laps["LapTime(s)"].min()
+    y_max = driver_laps["LapTime(s)"].max()
+    y_tick_labels = np.arange(np.floor(y_min), np.ceil(y_max), laptime_std)  # Create laptime_std spaced ticks
+
+    # Set y-axis labels with MM:SS.sss format for decoration
     fig.update_layout(
         title={
             "text": f"{year} {event_name} Lap Time Distributions",
@@ -1189,8 +1194,15 @@ def laptime_distribution_plot(session): #(event: str, year: int=2024):
             "yanchor": "top"
         },
         xaxis_title="Driver",
-        yaxis_title="Lap Time (s)",
-        yaxis=dict(showgrid=True, zeroline=True, zerolinecolor='black'),
+        yaxis_title="Lap Time",
+        yaxis=dict(
+            showgrid=True,
+            zeroline=True,
+            zerolinecolor='black',
+            tickmode='array',  # Set tick labels manually
+            tickvals=y_tick_labels,  # Set tick positions in seconds
+            ticktext=[format_lap_time(t) for t in y_tick_labels],  # Format ticks as MM:SS.sss
+        ),
         height=600,
         legend_title="Driver",
     )
@@ -1198,19 +1210,12 @@ def laptime_distribution_plot(session): #(event: str, year: int=2024):
     # Add the second legend under the title
     annotations = []
     spacing = 0.075
-    # spacing = 0.125  # Spacing between legend entries
 
-    # Filter the dictionary
+    # Filter the dictionary for compounds used in the session
     filtered_colors = {key: value for key, value in compound_colors.items() if value in session_compound_colors}
 
-    # # Total number of items
-    # n_items = len(filtered_colors)
-
-    # # Centered starting x-position
-    # center_start = 0.5 - (n_items - 1) * spacing / 2
-
+    # Add annotations for compound colors
     annotations.append(dict(
-        # x=center_start + i * spacing,  # Start at the centered position
         x=0,
         y=-0.2,
         xref="paper", 
@@ -1224,7 +1229,6 @@ def laptime_distribution_plot(session): #(event: str, year: int=2024):
     # Add annotations, evenly spaced and centered
     for i, (compound, color) in enumerate(filtered_colors.items()):
         annotations.append(dict(
-            # x=center_start + i * spacing,  # Start at the centered position
             x=(i+1)*spacing,
             y=-0.2,
             xref="paper", 
@@ -1238,6 +1242,7 @@ def laptime_distribution_plot(session): #(event: str, year: int=2024):
     fig.update_layout(annotations=annotations)
 
     return fig
+
 
 
     
