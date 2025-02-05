@@ -28,6 +28,22 @@ from wiki_utils import *
 # # Only show important warnings
 # fastf1.set_log_level('WARNING')
 
+def format_lap_time(total_seconds):
+    """
+    Converts total lap time in seconds to MM:SS.sss format.
+    
+    Parameters:
+        total_seconds (float): Lap time in seconds.
+    
+    Returns:
+        str: Formatted lap time as MM:SS.sss
+    """
+    minutes = int(total_seconds // 60)
+    seconds = int(total_seconds % 60)
+    milliseconds = int((total_seconds % 1) * 1000)
+    return f"{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+
+
 # Enable fastf1 cache
 fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
@@ -975,30 +991,60 @@ def laptime_plot(session, drivers_list=[]):#(event: str, drivers_list: list = []
     # Create a Plotly figure
     fig = go.Figure()
 
-    # Loop over each driver abbreviation
+    # Initialize an empty set to collect y-axis tick values
+    y_tick_values = set()
+
     for driver in drivers_list:
         driver_laps = session.laps.pick_drivers(driver).pick_quicklaps().reset_index()
+        
+        # Collect lap times for this driver
+        y_tick_values.update(driver_laps['LapTime'].dt.total_seconds())
+
+        # Create custom hover text
+        hover_texts = [
+            f"{driver} - Lap {lap} | {format_lap_time(lap_time)}"
+            for lap, lap_time in zip(driver_laps['LapNumber'], driver_laps['LapTime'].dt.total_seconds())
+        ]
 
         fig.add_trace(go.Scatter(
             x=driver_laps['LapNumber'],
-            y=driver_laps['LapTime'].dt.total_seconds(),  # Convert timedelta to seconds for plotting
+            y=driver_laps['LapTime'].dt.total_seconds(),  # Keep as seconds for proper plotting
             mode='lines+markers',
             name=driver,
             line=dict(color=driver_colors[driver], width=2),
-            marker=dict(symbol='circle')
+            marker=dict(symbol='circle'),
+            text=hover_texts,  # Custom hover text
+            hoverinfo="text"  # Show only custom text in hover
         ))
 
-    # Customize layout
+    # Standard deviation of lap times for tick step
+    laptime_std = np.std([float(val) for val in y_tick_values])
+
+    # Convert set to sorted list for proper y-axis ordering
+    y_tick_values = sorted(y_tick_values)
+
+    # Define tick range from min to max y-values with laptime_std steps
+    y_min = min(y_tick_values)
+    y_max = max(y_tick_values)
+    y_tick_labels = np.arange(np.floor(y_min), np.ceil(y_max), laptime_std)  # Create laptime_std spaced ticks
+
     fig.update_layout(
         title=f"Laptimes in the {year} {event_name}",
         xaxis_title="Lap Number",
-        yaxis_title="Lap Time (s)",
-        yaxis=dict(autorange='reversed', zeroline=False),  # Invert y-axis to show faster laps at the top
+        yaxis_title="Lap Time",
+        yaxis=dict(
+            # autorange='reversed',  # Keep inverted axis (faster laps at the top)
+            zeroline=False,
+            tickmode='array',  # Use predefined tick labels
+            tickvals=y_tick_labels,  # Tick labels spaced every 0.5 seconds
+            ticktext=[format_lap_time(t) for t in y_tick_labels],  # Format as MM:SS.sss
+        ),
         xaxis=dict(zeroline=False),
         legend_title="Driver",
     )
 
     return fig
+
 
 
 # Might need to also check the classified grid starting position if needed?
