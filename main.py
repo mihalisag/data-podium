@@ -299,11 +299,13 @@ def main_page():
                         get_drivers, selected_values['session'] # did change here with session 
                     )
                     spinner.delete()  # Remove spinner when done
+                    
+                    global selected_drivers
                     selected_drivers = ui.select(
                         label='Select driver(s):',
                         options=drivers,
                         multiple=True,
-                        on_change=lambda e: update_selected_value('drivers_list', e.value),
+                        on_change=lambda e: (update_selected_value('drivers_list', e.value), update_button_status())
                         # clearable=True # clear selections button
                     ).props('use-chips').style('width: 250px;')
 
@@ -321,11 +323,12 @@ def main_page():
                     lap_options = ['fastest'] + [i for i in range(1, total_laps + 1)]
 
                     # Create the lap selector
+                    global laps_selector
                     laps_selector = ui.select(
                         label='Select lap:',
                         options=lap_options,
                         # multiple=True,
-                        on_change=lambda e: update_selected_value('laps', e.value)
+                        on_change=lambda e: (update_selected_value('laps', e.value), update_button_status())
                     ).props('use-chips').style('width: 150px;')
 
                 # Handle speed parameter
@@ -340,6 +343,7 @@ def main_page():
                             on_change=lambda e: update_selected_value('speed', e.value)
                         ).style('width: 300px;')
                         ui.label().bind_text_from(speed_slider, 'value')
+
 
         update_button_status()
 
@@ -449,6 +453,21 @@ def main_page():
                     selected_gp_dropdown.value and
                     function_select.value
                 )
+                
+                # refactor to remove redundant code
+                if function_select.value == "Race lap times":
+                    computed_enabled.value = bool(
+                    computed_enabled.value and
+                    selected_drivers.value
+                    )
+
+                if function_select.value == "Telemetry comparison":
+                    computed_enabled.value = bool(
+                    computed_enabled.value and
+                    selected_drivers.value and
+                    laps_selector.value
+                    )
+
                 print("Button enabled status updated to:", computed_enabled.value)
 
             # If your existing on_change functions already exist (like update_grand_prix_list),
