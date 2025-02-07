@@ -10,10 +10,29 @@ from nicegui import ui, run # , native
 import time
 import threading
 
+import secrets
+
+import gc
+
 
 # # Multiprocessing freeze
 # import multiprocessing
 # multiprocessing.freeze_support()
+
+
+# # Generate a fixed secret key to ensure storage works correctly
+# STORAGE_SECRET = secrets.token_hex(32)
+# global session
+
+# @app.on_disconnect
+# def clear_variables():
+#     print("Clearing app storage on disconnect...")
+#     # app.storage.client.clear()  # Clears client-specific storage (per session)
+#     app.storage.tab.clear()     # Clears tab-specific storage
+#     # app.storage.user.clear()    # Clears user-specific storage
+#     # app.storage.general.clear() # Clears shared storage
+#     # app.storage.browser.clear() # Clears browser-stored session data
+#     print("All app variables cleared!")
 
 
 @ui.page('/other_page', dark=True)
@@ -72,7 +91,7 @@ def main_page():
         "Race position changes": "get_positions_during_race",
         "Race overview": "race_statistics",
         "Race lap times": "laptime_plot",
-        "Race start times": "get_reaction_time",
+        "Race start reaction times": "get_reaction_time",
         "Telemetry comparison": "compare_telemetry",
         "Lap time distribution": "laptime_distribution_plot",
         "Qualifying results": "get_qualifying_results",
@@ -157,6 +176,7 @@ def main_page():
                     rows=df_serializable.to_dict('records'),
                 ).style("width: 100%; display: flex; justify-content: center; align-items: center;")
 
+        # @ui.refreshable
         def render_item(item):
             """Helper to render a single item based on its type."""
             if isinstance(item, str):
@@ -198,6 +218,10 @@ def main_page():
                 for item in result_list:
                     render_item(item)
 
+        # # Print the local variables inside main_page
+        # print("Local variables in main_page:")
+        # for var, _ in locals().items():
+        #     print(f"{var}")
 
     async def execute_function():
         """
@@ -211,7 +235,7 @@ def main_page():
         start = time.time()
         # print(f"START TIME: {start}")
 
-        function_name = desc_to_function[function.value]  # Get the selected function name
+        function_name = desc_to_function[function_select.value]  # Get the selected function name
         print(f"Executing {function_name} with parameters: {selected_values}")
 
         # Ensure all required parameters are provided
@@ -243,16 +267,17 @@ def main_page():
             # Notify the user of the error
             ui.notify(f"Execution failed: {e}", color="red")
         
+
         duration = time.time() - start
         print(f"DURATION: {duration}s")
         log_time(function_name, duration)
 
 
     # Function select handler
-    async def function_select(event):
+    async def function_select_handler(event):
         nonlocal dynamic_ui_placeholder
-        function = event
-        function_name = desc_to_function[function.value]
+        function_select = event
+        function_name = desc_to_function[function_select.value]
         function_object = function_dispatcher[function_name]
         function_parameters = list(func_param_gen(function_object))
         print(f"Function: {function_name}")
@@ -316,7 +341,10 @@ def main_page():
                         ).style('width: 300px;')
                         ui.label().bind_text_from(speed_slider, 'value')
 
-    
+        update_button_status()
+
+        
+
     # Really difficult, need to understand how it works
     # Function to simulate loading the session and show the spinner
     def update_session_with_spinner(event=None):
@@ -329,7 +357,6 @@ def main_page():
             event = selected_gp_dropdown.value
 
             try:
-                # Simulate the blocking operation
                 session = fastf1.get_session(year, event, 'R')
                 session.load(weather=False, messages=False)  # This is blocking
                 print(f"Session loaded for {year} {event}")
@@ -345,6 +372,8 @@ def main_page():
         # Run the loading process in a separate thread to avoid blocking UI
         threading.Thread(target=load_session).start()
 
+        update_button_status()
+
 
      # Function to update the Grand Prix list based on the selected year
     def update_grand_prix_list(event):
@@ -355,6 +384,8 @@ def main_page():
         selected_gp_dropdown.options = grand_prix_list  # Update the Grand Prix dropdown options
         selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
         selected_gp_dropdown.update()  # Re-render the Grand Prix dropdown to reflect the updated options
+
+        update_button_status()
 
 
     # Create the UI layout
@@ -374,12 +405,13 @@ def main_page():
         event_spinner.visible = False
         
         with ui.row():
+
             # Year dropdown, triggered on change to update Grand Prix options
             selected_year_dropdown = ui.select(
                 label="Select year:",
                 options=list(YEARS),
                 value=selected_values['year'],
-                on_change=update_grand_prix_list
+                on_change=lambda e: update_grand_prix_list(e),
             ).style('width: 150px;')
 
 
@@ -391,36 +423,43 @@ def main_page():
                 label="Select event:",
                 options=grand_prix_list,
                 # value=selected_values['event'],  # Default value
-                on_change=lambda e: (
-                    update_selected_value('event', e.value),  # Update selected value
-                    update_session_with_spinner()  # Trigger session update with spinner
-                )
+                on_change=lambda e: (update_selected_value('event', e.value),
+                                    update_session_with_spinner())
             ).style('width: 225px;')
         
-            function = ui.select(
+
+            # Rename the function select to avoid confusion with Python's keyword:
+            function_select = ui.select(
                 label="Select a function:",
-                options=list(desc_to_function.keys()),
-                on_change=function_select ,
+                options=list(desc_to_function.keys()),  # using your existing dict keys
+                value=None,  # No default selection
+                on_change=function_select_handler,
             ).style('width: 250px;')
 
-            # Place the "Execute" button on the first card
-            ui.button("Show results", on_click=execute_function).style("position: absolute; bottom: 12.5px; right: 12.5px; margin-top: 12px;").classes('ml-2')
-    
+
+            # Create a hidden input to store the computed enabled state for the button.
+            # Its value will be True if all three selects have a valid value.
+            computed_enabled = ui.input(value=False).props('hidden')
+
+            def update_button_status():
+                """Set computed_enabled.value True if year, event, and function are all selected."""
+                # Check that each select has a non-empty value (you might adjust this check if your value can be 0)
+                computed_enabled.value = bool(
+                    selected_year_dropdown.value and
+                    selected_gp_dropdown.value and
+                    function_select.value
+                )
+                print("Button enabled status updated to:", computed_enabled.value)
+
+            # If your existing on_change functions already exist (like update_grand_prix_list),
+            # simply add a call to update_button_status() at the end of each.
+
+            # Now create the button and bind its enabled state to computed_enabled.value:
+            execute_button = ui.button("Show results", on_click=execute_function).style("position: absolute; bottom: 12.5px; right: 12.5px; margin-top: 12px;").classes('ml-2')
+            execute_button.bind_enabled_from(computed_enabled, 'value')
+
     
     result_placeholder = ui.column().style("width: 100%;") # Placeholder for the rendered result
 
-
-    
-            # # Display Result button
-            # ui.button("Display Result", on_click=display_result)
-
-    # # Card to display results
-    # with ui.card().classes("w-full p-4 shadow-lg"):
-    #     result_placeholder = ui.column()  # Placeholder for the rendered result
-
-# ui.run()
-# ui.run(host="0.0.0.0", port=8080)
-
-ui.run(host='127.0.0.1', port=8080, favicon="🏎️")
-
-
+        
+ui.run(host='127.0.0.1', port=8080, favicon="🏎️") #, storage_secret=STORAGE_SECRET)
