@@ -86,7 +86,7 @@ def main_page():
     desc_to_function = {
         "Race results": "get_race_results",
         "Race position changes": "get_positions_during_race",
-        "Race overview": "race_statistics",
+        # "Race overview": "race_statistics",
         "Race lap times": "laptime_plot",
         "Race start reaction times": "get_reaction_time",
         "Telemetry comparison": "compare_telemetry",
@@ -95,10 +95,10 @@ def main_page():
         "Fastest lap time": "get_fastest_lap_time_print",
         "Season schedule": "get_schedule_until_now",
         "Season podium finishes": "get_season_podiums",
-        "Season fastest laps": "fastest_driver_freq_plot",
+        # "Season fastest laps": "fastest_driver_freq_plot",
         "Season qualifying performance": "compare_quali_season",
         "Tyre strategies": "plot_tyre_strategies",
-        "Pit stop information": "get_pit_stops",
+        # "Pit stop information": "get_pit_stops",
         # "Output the winner": "get_winner",
     }
 
@@ -237,9 +237,9 @@ def main_page():
         required_params = list(func_param_gen(function_dispatcher[function_name]))
         function_args = {key: selected_values[key] for key in required_params if key in selected_values}
         print(f"Function Arguments: {function_args}")
+        spinner = ui.spinner(size='lg').style("position: absolute; top: 8px; right: 8px;").classes('ml-2')
 
         try:
-            spinner = ui.spinner(size='lg').style("position: absolute; top: 8px; right: 8px;").classes('ml-2')
             # Run the function execution in a separate thread or process
             result = await run.cpu_bound(function_dispatcher[function_name], **function_args)
             spinner.delete()
@@ -258,6 +258,8 @@ def main_page():
                 result_placeholder.clear()
                 with result_placeholder:
                     ui.label(f"Error: {e}").style("color: red;")
+            spinner.delete()
+
 
             # Notify the user of the error
             ui.notify(f"Execution failed: {e}", color="red")
