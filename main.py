@@ -406,7 +406,7 @@ def main_page():
 
         grand_prix_list = grand_prix_by_year.get(year, [])  # Get the Grand Prix options based on the selected year
         selected_gp_dropdown.options = grand_prix_list  # Update the Grand Prix dropdown options
-        selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
+        # selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
         selected_gp_dropdown.update()  # Re-render the Grand Prix dropdown to reflect the updated options
 
         update_button_status()
