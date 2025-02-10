@@ -45,8 +45,14 @@ def other_page():
 
     ui.markdown(markdown_content)
 
+# Create a hidden input to store the computed enabled state for the button.
+# Its value will be True if all three selects have a valid value.
+computed_enabled = ui.input(value=False).props('hidden')
+
 @ui.page('/')
 def main_page():
+
+    computed_enabled.value = False
     
     ui.link('About', other_page).style("position: absolute; top: 8px; right: 20px;").classes('ml-2')
 
@@ -262,6 +268,28 @@ def main_page():
         log_time(function_name, duration)
 
 
+    def update_button_status():
+        """Set computed_enabled.value True if year, event, and function are all selected."""
+        computed_enabled.value = bool(
+            computed_enabled.value and
+            selected_year_dropdown.value and
+            selected_gp_dropdown.value and
+            function_select.value
+        )
+        
+        # # If driver selection is needed, ensure it's selected
+        # if function_select.value in ["Race lap times", "Season qualifying performance"]:
+        #     computed_enabled.value = computed_enabled.value and bool(selected_drivers.value)
+
+        # if function_select.value == "Telemetry comparison":
+        #     computed_enabled.value = computed_enabled.value and bool(selected_drivers.value and laps_selector.value)
+
+        # print("Event spinner = ", event_spinner.visible)
+        # computed_enabled.value = not event_spinner.visible
+
+        print("Button enabled status updated to:", computed_enabled.value)
+
+
     # Function select handler
     async def function_select_handler(event):
         nonlocal dynamic_ui_placeholder
@@ -337,7 +365,6 @@ def main_page():
         update_button_status()
 
         
-
     # Really difficult, need to understand how it works
     # Function to simulate loading the session and show the spinner
     def update_session_with_spinner(event=None):
@@ -348,11 +375,13 @@ def main_page():
         def load_session():
             year = selected_year_dropdown.value
             event = selected_gp_dropdown.value
-
+            
             try:
+                computed_enabled.value = False
                 session = fastf1.get_session(year, event, 'R')
                 session.load(weather=False, messages=False)  # This is blocking
                 print(f"Session loaded for {year} {event}")
+                computed_enabled.value = True
             except Exception as e:
                 print(f"Error loading session: {e}")
                 session = None  # Reset session on failure
@@ -372,7 +401,7 @@ def main_page():
     def update_grand_prix_list(event):
         year = event.value  # Get the selected year value]
         update_selected_value('year', year)
-        # grand_prix_list = [*grand_prix_by_year.get(year, []), 'Season']  # Get the Grand Prix options based on the selected year
+
         grand_prix_list = grand_prix_by_year.get(year, [])  # Get the Grand Prix options based on the selected year
         selected_gp_dropdown.options = grand_prix_list  # Update the Grand Prix dropdown options
         selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
@@ -429,39 +458,7 @@ def main_page():
                 on_change=function_select_handler,
             ).style('width: 250px;')
 
-
-            # Create a hidden input to store the computed enabled state for the button.
-            # Its value will be True if all three selects have a valid value.
-            computed_enabled = ui.input(value=False).props('hidden')
-
-            def update_button_status():
-                """Set computed_enabled.value True if year, event, and function are all selected."""
-                # Check that each select has a non-empty value (you might adjust this check if your value can be 0)
-                computed_enabled.value = bool(
-                    selected_year_dropdown.value and
-                    selected_gp_dropdown.value and
-                    function_select.value
-                )
-                
-                # refactor to remove redundant code
-                if function_select.value == "Race lap times":
-                    computed_enabled.value = bool(
-                    computed_enabled.value and
-                    selected_drivers.value
-                    )
-
-                if function_select.value == "Telemetry comparison":
-                    computed_enabled.value = bool(
-                    computed_enabled.value and
-                    selected_drivers.value and
-                    laps_selector.value
-                    )
-
-                print("Button enabled status updated to:", computed_enabled.value)
-
-            # If your existing on_change functions already exist (like update_grand_prix_list),
-            # simply add a call to update_button_status() at the end of each.
-
+        
             # Now create the button and bind its enabled state to computed_enabled.value:
             execute_button = ui.button("Show results", on_click=execute_function).style("position: absolute; bottom: 12.5px; right: 12.5px; margin-top: 12px;").classes('ml-2')
             execute_button.bind_enabled_from(computed_enabled, 'value')
