@@ -11,12 +11,12 @@ Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is
 - **Driver-Level Analysis**: Compare drivers based on telemetry, lap times, positions, and other metrics.
 - **Session Analysis**: Dive into qualifying or race statistics.
 - **Event Analysis**: Explore rankings, fastest laps, and other race-specific details.
-- **Race Report**: Fetches the race report found in Wikipedia
+- **Race Report**: Fetches the race report found in Wikipedia (removed temporarily)
 - **Season Comparisons**: Compare multiple drivers across the season.
 - *Soon:* Identify and analyse battles in the track.
 
 
-## Technologies Used
+## Main Technologies Used
 
 - **NiceGUI**: For creating the interactive web application.
 - **Pandas**: Data manipulation and processing.
@@ -24,8 +24,6 @@ Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is
 - **FastF1**: The Formula 1 data source
 
 
-
-<!-- USAGE -->
 ## Usage
 
 1. Clone the repository:
@@ -44,18 +42,20 @@ Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is
     ```sh
     python main.py
     ```
+5. Access it in a browser:
+    ```sh
+    http://localhost:8080
+    ```
 
-<!-- ROADMAP -->
 ## Roadmap
 
 - Identify and analyse battles in the track.
 - Show a race overview with information about race, a report and a track map.
 - More advanced driver performance metrics.
 
-<!-- LICENSE -->
 ## License
 
-Distributed under the Unlicense License. See `LICENSE.txt` for more information.
+Distributed under the GNU General Public License. See `LICENSE` for more information.
 
 
 ## Acknowledgments
