@@ -30,14 +30,17 @@ Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is
 
 1. Clone the repository:
     ```sh
-    https://github.com/mihalisag/data-podium
+    git clone https://github.com/mihalisag/data-podium.git
     ```
-2. Install Python dependencies (need Python 3.11+):
+2. Create a virtual environment and activate it
     ```sh
-    pip install -r requirements.txt
+    python3 -m venv data-podium-env && source data-podium-env/bin/activate
     ```
-
-3. Run the application:
+3. Install Python dependencies (need Python 3.11+):
+    ```sh
+    cd data-podium && pip install -r requirements.txt
+    ```
+4. Run the application:
     ```sh
     python main.py
     ```
