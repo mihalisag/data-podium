@@ -129,9 +129,21 @@ def format_timedelta(td: pd.Timedelta) -> str:
     return formatted_time
 
 
+
+def lap_time_convert(lap_time):
+    '''
+        Workaround for correct time format
+    '''
+    lap_time = str(lap_time).split(' ')
+    lap_time = [lap_time for lap_time in lap_time if ':' in lap_time and len(lap_time) >= 5][0]
+    lap_time = lap_time[3:-3]
+
+    return lap_time
+
+
 def lap_time_df_gen(session, lap, drivers_list: list):
     '''
-        Generates laptime DataFrame from specific drivers
+        Generates lap time DataFrame from specific drivers
     '''
 
     lap_time_df = pd.DataFrame(columns=['Driver', 'LapNumber', 'LapTime'])
@@ -148,10 +160,10 @@ def lap_time_df_gen(session, lap, drivers_list: list):
     lap_time_df = lap_time_df.reset_index(drop=True)  # reset index
 
     # Convert to str type
-    lap_time_df.loc[:,'LapTime'] = lap_time_df['LapTime'].astype(str)
+    # lap_time_df.loc[:,'LapTime'] = lap_time_df['LapTime'].astype(str)
+    lap_time_df.loc[:,'LapTime'] = lap_time_df.loc[:,'LapTime'].apply(lap_time_convert)
 
     return lap_time_df
-
 
 
 
