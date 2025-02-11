@@ -12,29 +12,16 @@ import threading
 
 import secrets
 
-import gc
+# Create cache folder if it doesn't exist
+path = ".cache/fastf1"
+    
+if not os.path.exists(path):  # Check if the folder exists
+    os.makedirs(path)
+    print(f"FastF1 cache folder created: {path}")
+else:
+    print(f"FastF1 cache folder already exists: {path}")
 
-
-# # Multiprocessing freeze
-# import multiprocessing
-# multiprocessing.freeze_support()
-
-
-# # Generate a fixed secret key to ensure storage works correctly
-# STORAGE_SECRET = secrets.token_hex(32)
-# global session
-
-# @app.on_disconnect
-# def clear_variables():
-#     print("Clearing app storage on disconnect...")
-#     # app.storage.client.clear()  # Clears client-specific storage (per session)
-#     app.storage.tab.clear()     # Clears tab-specific storage
-#     # app.storage.user.clear()    # Clears user-specific storage
-#     # app.storage.general.clear() # Clears shared storage
-#     # app.storage.browser.clear() # Clears browser-stored session data
-#     print("All app variables cleared!")
-
-
+# -- NiceGUI --
 @ui.page('/other_page', dark=True)
 def other_page():
     ui.link('Main', main_page)
