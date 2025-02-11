@@ -47,6 +47,16 @@ def format_lap_time(total_seconds):
 # Enable fastf1 cache
 fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
 
+# Create cache folder if it doesn't exist
+path = ".cache/fastf1"
+    
+if not os.path.exists(path):  # Check if the folder exists
+    os.makedirs(path)
+    print(f"FastF1 cache folder created: {path}")
+else:
+    print(f"FastF1 cache folder already exists: {path}")
+
+
 # A dictionary to store registered functions
 functions_registry: Dict[str, Dict[str, Any]] = {}
 

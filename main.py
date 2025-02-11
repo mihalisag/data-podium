@@ -12,14 +12,6 @@ import threading
 
 import secrets
 
-# Create cache folder if it doesn't exist
-path = ".cache/fastf1"
-    
-if not os.path.exists(path):  # Check if the folder exists
-    os.makedirs(path)
-    print(f"FastF1 cache folder created: {path}")
-else:
-    print(f"FastF1 cache folder already exists: {path}")
 
 # -- NiceGUI --
 @ui.page('/other_page', dark=True)
