@@ -32,11 +32,13 @@ Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is
     ```
 2. Create a virtual environment and activate it
     ```sh
-    python3 -m venv data-podium-env && source data-podium-env/bin/activate
+    python3 -m venv data-podium-env
+    source data-podium-env/bin/activate
     ```
 3. Install Python dependencies (need Python 3.11+):
     ```sh
-    cd data-podium && pip install -r requirements.txt
+    cd data-podium
+    pip install -r requirements.txt
     ```
 4. Run the application:
     ```sh
