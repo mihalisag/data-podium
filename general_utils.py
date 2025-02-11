@@ -44,17 +44,17 @@ def format_lap_time(total_seconds):
     return f"{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
 
 
-# Enable fastf1 cache
-fastf1.Cache.enable_cache('.cache/fastf1')  # Create a cache folder for faster loading
-
 # Create cache folder if it doesn't exist
-path = ".cache/fastf1"
+cache_path = ".cache/fastf1"
     
-if not os.path.exists(path):  # Check if the folder exists
-    os.makedirs(path)
-    print(f"FastF1 cache folder created: {path}")
+if not os.path.exists(cache_path):  # Check if the folder exists
+    os.makedirs(cache_path)
+    print(f"FastF1 cache folder created: {cache_path}")
 else:
-    print(f"FastF1 cache folder already exists: {path}")
+    print(f"FastF1 cache folder already exists: {cache_path}")
+
+# Enable fastf1 cache
+fastf1.Cache.enable_cache(cache_path)  # Create a cache folder for faster loading
 
 
 # A dictionary to store registered functions
