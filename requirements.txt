@@ -12,3 +12,5 @@ seaborn==0.13.2
 timple==0.1.8
 Wikipedia_API==0.7.1
 fastf1==3.4.4
+pycountry==24.6.1
+country_converter==1.3
