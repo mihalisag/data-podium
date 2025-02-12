@@ -25,8 +25,38 @@ from typing import Callable, Dict, Any, List
 
 from wiki_utils import *
 
+import country_converter as coco # Needed for converting to correct country name
+import pycountry
+
 # # Only show important warnings
 # fastf1.set_log_level('WARNING')
+
+def country_to_flag(country_name):
+    '''
+        Returns country emoji
+    '''
+    try:
+        
+        # Special cases
+        if country_name == 'Hungary':
+            return '🇭🇺'
+        elif country_name == 'Australia':
+            return '🇦🇺'
+        elif country_name == 'Abu Dhabi':
+            return '🇦🇪'
+        
+        # Get the official country name
+        country_name = coco.convert(names=country_name, to='name_official')
+
+        # Get the country code
+        country_code = pycountry.countries.lookup(country_name).alpha_2
+        
+        # Convert country code to regional indicator symbols
+        flag = ''.join([chr(ord(char) + 127397) for char in country_code.upper()])
+        return flag
+    except LookupError:
+        return ''
+    
 
 def format_lap_time(total_seconds):
     """

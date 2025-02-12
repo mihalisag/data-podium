@@ -380,10 +380,16 @@ def main_page():
 
      # Function to update the Grand Prix list based on the selected year
     def update_grand_prix_list(event):
+        
         year = event.value  # Get the selected year value]
         update_selected_value('year', year)
 
         grand_prix_list = grand_prix_by_year.get(year, [])  # Get the Grand Prix options based on the selected year
+        
+        countries = list(get_schedule_until_now(year)['Country'])
+        countries_flags = [country_to_flag(country) for country in countries]
+        grand_prix_list = [' '.join(pair) for pair in zip(countries_flags, grand_prix_list)]
+                
         selected_gp_dropdown.options = grand_prix_list  # Update the Grand Prix dropdown options
         # selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
         selected_gp_dropdown.update()  # Re-render the Grand Prix dropdown to reflect the updated options
@@ -420,7 +426,10 @@ def main_page():
 
             # Initialize the Grand Prix list based on the default year
             grand_prix_list = grand_prix_by_year.get(selected_values['year'], [])
-            
+            countries = list(get_schedule_until_now(selected_values['year'])['Country'])
+            countries_flags = [country_to_flag(country) for country in countries]
+            grand_prix_list = [' '.join(pair) for pair in zip(countries_flags, grand_prix_list)]
+
             # Modify the dropdown to trigger the session load with spinner
             selected_gp_dropdown = ui.select(
                 label="Select event:",
