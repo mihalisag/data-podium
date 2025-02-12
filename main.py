@@ -304,8 +304,8 @@ def main_page():
                         options=drivers,
                         multiple=True,
                         on_change=lambda e: (update_selected_value('drivers_list', e.value), update_button_status())
-                        # clearable=True # clear selections button
                     ).props('use-chips').style('width: 250px;')
+
 
                 # Handle metrics parameter
                 if 'metrics' in function_parameters:

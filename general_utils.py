@@ -203,6 +203,8 @@ def lap_time_df_gen(session, lap, drivers_list: list):
     # lap_time_df.loc[:,'LapTime'] = lap_time_df['LapTime'].astype(str)
     lap_time_df.loc[:,'LapTime'] = lap_time_df.loc[:,'LapTime'].apply(lap_time_convert)
 
+    lap_time_df['LapNumber'] = lap_time_df['LapNumber'].astype(int)
+
     return lap_time_df
 
 
