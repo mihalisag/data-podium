@@ -437,7 +437,7 @@ def main_page():
                 # value=selected_values['event'],  # Default value
                 on_change=lambda e: (update_selected_value('event', e.value),
                                     update_session_with_spinner())
-            ).style('width: 225px;')
+            ).style('width: 250px;')
         
 
             # Rename the function select to avoid confusion with Python's keyword:

@@ -198,12 +198,18 @@ def lap_time_df_gen(session, lap, drivers_list: list):
         lap_time_df = session.laps.pick_drivers(drivers_list).pick_laps(lap)[['Driver', 'LapNumber', 'LapTime']]
 
     lap_time_df = lap_time_df.reset_index(drop=True)  # reset index
+    
+    # Convert lap number to integer
+    lap_time_df['LapNumber'] = lap_time_df['LapNumber'].astype(int)
 
     # Convert to str type
     # lap_time_df.loc[:,'LapTime'] = lap_time_df['LapTime'].astype(str)
-    lap_time_df.loc[:,'LapTime'] = lap_time_df.loc[:,'LapTime'].apply(lap_time_convert)
+    
+    # Sort by fastest lap
+    lap_time_df = lap_time_df.sort_values(by=['LapTime'], ascending=True)
 
-    lap_time_df['LapNumber'] = lap_time_df['LapNumber'].astype(int)
+    # Convert lap time to correct format 
+    lap_time_df.loc[:,'LapTime'] = lap_time_df.loc[:,'LapTime'].apply(lap_time_convert)
 
     return lap_time_df
 
