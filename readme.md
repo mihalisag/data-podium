@@ -54,6 +54,7 @@ Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is
 - Identify and analyse battles in the track.
 - Show a race overview with information about race, a report and a track map.
 - More advanced driver performance metrics.
+- LLM integration
 
 ## License
 
