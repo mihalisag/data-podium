@@ -1,17 +1,15 @@
 import os
 import json
 
-import general_utils
-from general_utils import *
-
-from openai import OpenAI
-from nicegui import ui, run # , native
-
 import time
 import threading
-
 import secrets
 
+from openai import OpenAI
+from nicegui import ui, run 
+
+import general_utils
+from general_utils import *
 
 # -- NiceGUI --
 @ui.page('/other_page', dark=True)
@@ -39,8 +37,6 @@ def main_page():
 
     ui.page_title("Data Podium")
     ui.colors(primary='#FF1821')#, secondary='#53B689', accent='#111B1E', positive='#53B689')
-
-    # global result_placeholder, dynamic_ui_placeholder  # Declare as global variables
 
     # Initialize placeholders
     result_placeholder = None
@@ -84,9 +80,6 @@ def main_page():
 
     functions = functions_registry
 
-    # # Convert functions to JSON-like text
-    # functions_text = json.dumps(functions, indent=2)
-
     # Automatically create the function dispatcher
     function_dispatcher = {
         name: func
@@ -115,9 +108,7 @@ def main_page():
         'session': fastf1.get_session(list(YEARS)[-1], grand_prix_by_year[list(YEARS)[-1]][0], 'R'), # Default session
     }
 
-    # # Load default session
-    # selected_values['session'].load(weather=False, messages=False)
-   
+
     def update_selected_value(key, value):
         """Update the selected values dictionary."""
         selected_values[key] = value
@@ -162,10 +153,6 @@ def main_page():
             elif isinstance(item, go.Figure):
                 v_grid = True
 
-                # # Remove grid vertical grid line
-                # if item.data[0].type == 'bar':
-                #     v_grid = False
-
                 item.update_layout(
                     plot_bgcolor="rgba(0,0,0,0)",  # Transparent background
                     paper_bgcolor="rgba(0,0,0,0)",
@@ -202,12 +189,7 @@ def main_page():
         Execute the selected function and display the result in the second card.
         """
 
-        # # this to find optimal position in code
-        # session = update_session()
-        # selected_values['session'] = session
-
         start = time.time()
-        # print(f"START TIME: {start}")
 
         function_name = desc_to_function[function_select.value]  # Get the selected function name
         print(f"Executing {function_name} with parameters: {selected_values}")
@@ -257,16 +239,6 @@ def main_page():
             selected_gp_dropdown.value and
             function_select.value
         )
-        
-        # # If driver selection is needed, ensure it's selected
-        # if function_select.value in ["Race lap times", "Season qualifying performance"]:
-        #     computed_enabled.value = computed_enabled.value and bool(selected_drivers.value)
-
-        # if function_select.value == "Telemetry comparison":
-        #     computed_enabled.value = computed_enabled.value and bool(selected_drivers.value and laps_selector.value)
-
-        # print("Event spinner = ", event_spinner.visible)
-        # computed_enabled.value = not event_spinner.visible
 
         print("Button enabled status updated to:", computed_enabled.value)
 
@@ -304,7 +276,7 @@ def main_page():
                         options=drivers,
                         multiple=True,
                         on_change=lambda e: (update_selected_value('drivers_list', e.value), update_button_status())
-                    ).props('use-chips').style('width: 250px;')
+                    ).props('use-chips').style('width: 300px;')
 
 
                 # Handle metrics parameter
@@ -345,8 +317,6 @@ def main_page():
 
         update_button_status()
 
-        
-    # Really difficult, need to understand how it works
     # Function to simulate loading the session and show the spinner
     def update_session_with_spinner(event=None):
         # Show the spinner
@@ -391,7 +361,6 @@ def main_page():
         grand_prix_list = [' '.join(pair) for pair in zip(countries_flags, grand_prix_list)]
                 
         selected_gp_dropdown.options = grand_prix_list  # Update the Grand Prix dropdown options
-        # selected_gp_dropdown.value = grand_prix_list[0]  # Optionally reset the Grand Prix value to the first item
         selected_gp_dropdown.update()  # Re-render the Grand Prix dropdown to reflect the updated options
 
         update_button_status()
@@ -403,9 +372,6 @@ def main_page():
         dark = ui.dark_mode()
         dark.enable()
         
-        # # Create a button and position it at the top-right corner
-        # ui.button(icon='brightness_auto', on_click=dark.toggle).style("position: absolute; top: 12.5px; right: 12.5px; font-size: 18px; padding: 5px 8px;")    
-
         # Application title
         ui.markdown("# 🏎️ Data Podium")
 
@@ -421,7 +387,7 @@ def main_page():
                 options=list(YEARS),
                 value=selected_values['year'],
                 on_change=lambda e: update_grand_prix_list(e),
-            ).style('width: 150px;')
+            ).style('width: 100px;')
 
 
             # Initialize the Grand Prix list based on the default year
@@ -440,7 +406,6 @@ def main_page():
             ).style('width: 250px;')
         
 
-            # Rename the function select to avoid confusion with Python's keyword:
             function_select = ui.select(
                 label="Select a function:",
                 options=list(desc_to_function.keys()),  # using your existing dict keys
@@ -457,4 +422,4 @@ def main_page():
     result_placeholder = ui.column().style("width: 100%;") # Placeholder for the rendered result
 
         
-ui.run(host='127.0.0.1', port=8080, favicon="🏎️") #, storage_secret=STORAGE_SECRET)
+ui.run(host='127.0.0.1', port=8080, favicon="🏎️")
