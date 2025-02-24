@@ -59,11 +59,3 @@ Data Podium is a data-driven tool designed to analyse Formula 1 race data. It is
 ## License
 
 Distributed under the GNU General Public License. See `LICENSE` for more information.
-
-
-## Acknowledgments
-
-- Formula 1 for the inspiration.
-- [FastF1](https://github.com/theOehrly/Fast-F1) for the data source.
-
-
