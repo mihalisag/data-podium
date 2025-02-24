@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+import itertools
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -952,73 +953,94 @@ def compare_quali_season(drivers_list: list, year: int=2024):
     drivers, counts = outquali_df['BetterDriver'], outquali_df['Count']
     driver_counts_map = dict(zip(drivers, counts))
 
-    # Plot 2: Horizontal bar chart for driver performance counts
+    # Generate all unique driver pairs
+    driver_pairs = list(itertools.combinations(drivers, 2))
+
     fig2 = go.Figure()
 
-    fig2.add_trace(go.Bar(
-        y=['Qualifying Performance'],
-        x=[-driver_counts_map[drivers[0]]],
-        name=f'{drivers[0]} Count',
-        orientation='h',
-        marker=dict(color=bar_colors[drivers[0]]),
-        hoverinfo='skip'  # Disable hover information for this bar
-    ))
+    # Track drivers added to the legend
+    drivers_in_legend = set()
 
-    fig2.add_trace(go.Bar(
-        y=['Qualifying Performance'],
-        x=[driver_counts_map[drivers[1]]],
-        name=f'{drivers[1]} Count',
-        orientation='h',
-        marker=dict(color=bar_colors[drivers[1]]),
-        hoverinfo='skip'  # Disable hover information for this bar
-    ))
+    for driver1, driver2 in driver_pairs:
+        count1 = driver_counts_map[driver1]
+        count2 = driver_counts_map[driver2]
 
-    # Add the count values inside the bars
-    fig2.add_trace(go.Scatter(
-        x=[-counts[0] / 2],
-        y=['Qualifying Performance'],
-        text=[str(counts[0])],
-        mode='text',
-        textfont=dict(color='black'),
-        showlegend=False,
-        hoverinfo='skip'  # Disable hover information for this bar
-    ))
+        # Add bars for both drivers, ensuring each appears in the legend only once
+        fig2.add_trace(go.Bar(
+            y=[f'{driver1} vs {driver2}'],
+            x=[-count1],
+            name=f'{driver1} Count',
+            orientation='h',
+            marker=dict(color=bar_colors[driver1]),
+            hoverinfo='skip',
+            legendgroup=driver1,  # Group traces by driver
+            showlegend=driver1 not in drivers_in_legend  # Show only if not already added
+        ))
+        drivers_in_legend.add(driver1)
 
-    fig2.add_trace(go.Scatter(
-        x=[counts[1] / 2],
-        y=['Qualifying Performance'],
-        text=[str(counts[1])],
-        mode='text',
-        textfont=dict(color='black'),
-        showlegend=False,
-        hoverinfo='skip'  # Disable hover information for this bar
-    ))
+        fig2.add_trace(go.Bar(
+            y=[f'{driver1} vs {driver2}'],
+            x=[count2],
+            name=f'{driver2} Count',
+            orientation='h',
+            marker=dict(color=bar_colors[driver2]),
+            hoverinfo='skip',
+            legendgroup=driver2,
+            showlegend=driver2 not in drivers_in_legend
+        ))
+        drivers_in_legend.add(driver2)
 
+        # Add text labels inside the bars (no legend needed)
+        fig2.add_trace(go.Scatter(
+            x=[-count1 / 2],
+            y=[f'{driver1} vs {driver2}'],
+            text=[str(count1)],
+            mode='text',
+            textfont=dict(color='black'),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+
+        fig2.add_trace(go.Scatter(
+            x=[count2 / 2],
+            y=[f'{driver1} vs {driver2}'],
+            text=[str(count2)],
+            mode='text',
+            textfont=dict(color='black'),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+
+    # Update layout
     fig2.update_layout(
         title=f'{year} Qualifying Performance: Outqualified Counts',
         xaxis=dict(
             title='Count',
-            zeroline=False,  # Disable the default zero line
+            zeroline=False,
             showgrid=False,
             showticklabels=False
         ),
-        yaxis=dict(showticklabels=False),
+        yaxis=dict(showticklabels=True),
         barmode='overlay',
-        showlegend=True,
-        height=250,
+        showlegend=False,
+        height=450,  # Adjust height dynamically
         shapes=[
             dict(
                 type='line',
                 x0=0,
                 x1=0,
                 y0=-0.5,
-                y1=0.5,
+                y1=len(driver_pairs) - 0.5,
                 line=dict(color='white', width=2),
-                layer='above'  # Ensure this line appears above the bars
+                layer='above'
             )
         ]
-    )   
+    )
+
+    fig2.update_layout(dragmode=False, hovermode=False)  # Prevents interaction
+
     return [fig1, fig2]
+
 
 # change color of second driver if in same team (see season qualifying performance function)
 # show laptimes in correct format
@@ -1453,6 +1475,8 @@ def plot_tyre_strategies(session): #(event: str, year: int = 2024):
     stints = stints.groupby(["Driver", "Stint", "Compound"]).count().reset_index()
     stints = stints.rename(columns={"LapNumber": "StintLength"})
 
+    compound_colors_dict = dict()
+
     # Create Plotly figure
     fig = go.Figure()
 
@@ -1464,6 +1488,7 @@ def plot_tyre_strategies(session): #(event: str, year: int = 2024):
         for _, row in driver_stints.iterrows():
             # Get compound color
             compound_color = fastf1.plotting.get_compound_color(row["Compound"], session=session)
+            compound_colors_dict[row["Compound"]] = compound_color
 
             # Add a horizontal bar for each stint
             fig.add_trace(
@@ -1472,7 +1497,8 @@ def plot_tyre_strategies(session): #(event: str, year: int = 2024):
                     y=[driver],
                     orientation='h',
                     marker=dict(color=compound_color, line=dict(color="black", width=1)),
-                    showlegend=False
+                    showlegend=False,
+                    name=""  # Custom name (replaced trace 0, trace 1 etc.)
                 )
             )
 
@@ -1486,9 +1512,45 @@ def plot_tyre_strategies(session): #(event: str, year: int = 2024):
         yaxis=dict(autorange='reversed'),
         xaxis=dict(showgrid=False),
         barmode="stack",
-        margin=dict(t=50, l=50, r=50, b=50),
+        # margin=dict(t=50, l=50, r=50, b=50),
         height=600,
     )
+
+
+    # Add the second legend under the title
+    annotations = []
+    spacing = 0.075
+
+    # Add annotations for compound colors
+    annotations.append(dict(
+        x=0,
+        y=-0.2,
+        xref="paper", 
+        yref="paper",
+        text="Compound",
+        showarrow=False,
+        align="center",
+        font=dict(size=12)
+    ))
+
+    # Add annotations, evenly spaced and centered
+    for i, (compound, color) in enumerate(compound_colors_dict.items()):
+        annotations.append(dict(
+            x=(i+1)*spacing,
+            y=-0.2,
+            xref="paper", 
+            yref="paper",
+            text=f"<span style='color:{color};'>⬤</span> {compound}",
+            showarrow=False,
+            align="center",
+            font=dict(size=12)
+        ))
+
+    fig.update_layout(annotations=annotations)
+
+    print(annotations)
+
+    fig.update_layout(dragmode=False) 
 
     return fig
 
