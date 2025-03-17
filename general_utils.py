@@ -219,7 +219,7 @@ def lap_time_df_gen(session, lap, drivers_list: list):
 ## Telemetry functions
 
 @register_function
-def get_schedule_until_now(year: int=2024):
+def get_schedule_until_now(year: int=2025):
     """
     Filters and returns the schedule of races up to the current date for a given season.
 
@@ -250,7 +250,7 @@ def get_schedule_until_now(year: int=2024):
 
 
 @register_function
-def get_reaction_time(session, speed: int):#(event:str, speed: int, year: int=2024):
+def get_reaction_time(session, speed: int):#(event:str, speed: int, year: int=2025):
     """
     Retrieves the reaction time of drivers to reach a specific speed at the start of the race.
 
@@ -329,7 +329,7 @@ def get_reaction_time(session, speed: int):#(event:str, speed: int, year: int=20
     
 
 # @register_function
-def get_fastest_lap_time_result(session): #(event: str, year: int=2024):
+def get_fastest_lap_time_result(session): #(event: str, year: int=2025):
     """
     Finds the fastest lap time for a specific Grand Prix or event and returns relevant details.
 
@@ -367,7 +367,7 @@ def get_fastest_lap_time_print(session):
     return sentence
 
 
-def get_driver_colors(session): #(session=None, year: int=2024):
+def get_driver_colors(session): #(session=None, year: int=2025):
     """
         Returns the driver colors for a specific session or the season
     """
@@ -498,7 +498,7 @@ def get_winner(session): #(event: str, year: int) -> str:
 
 # New implementation (inspired by fastf1 existing implementation) - no subset of drivers (could filter out with plotly?)
 @register_function
-def get_positions_during_race(session): #(event: str, year: int=2024):
+def get_positions_during_race(session): #(event: str, year: int=2025):
     """
     Show positions of drivers throughout a race using Plotly.
 
@@ -622,7 +622,7 @@ def compare_telemetry(session, drivers_list: list, metrics: list, laps: list):
         drivers_list (list): A list of driver abbreviations to compare.
         metrics (list): A list of metrics to compare (e.g., 'speed', 'gas').
         laps (list): A list of laps to analyze (single lap or multiple laps).
-        year (int): The Grand Prix's year. Default is 2024.
+        year (int): The Grand Prix's year. Default is 2025.
     """
 
     figures = []
@@ -814,15 +814,15 @@ def compare_telemetry(session, drivers_list: list, metrics: list, laps: list):
 # Improve naming
 # FIX: driver colors
 @register_function
-def fastest_driver_freq_plot(year: int=2024):
+def fastest_driver_freq_plot(year: int=2025):
     """
     Plots the count of fastest laps for every driver who achieved at least one fastest lap in a given season.
 
     Parameters:
-        year (int): The season's year. Defaults to 2024.
+        year (int): The season's year. Defaults to 2025.
     """
 
-    schedule = get_schedule_until_now(2024)
+    schedule = get_schedule_until_now(2025)
     events = list(schedule['EventName'])
 
     drivers_list = []
@@ -874,13 +874,13 @@ def fastest_driver_freq_plot(year: int=2024):
 #  - Having specific color for each driver (need to think for global solution, that is other plots)
 #  - Making it for multiple teams (pairs of drivers) (only for the second plot might be problematic)
 @register_function
-def compare_quali_season(drivers_list: list, year: int=2024):
+def compare_quali_season(drivers_list: list, year: int=2025):
     """
     Compares the qualifying performance of pairs of drivers across a season.
 
     Parameters:
         drivers_list (list): A list of driver names or abbreviations to compare.
-        year (int): The season's year. Defaults to 2024.
+        year (int): The season's year. Defaults to 2025.
     """
     # It is random and might not contain driver -> need to fix
     session = fastf1.get_session(year, 10, 'R')
@@ -1045,7 +1045,7 @@ def compare_quali_season(drivers_list: list, year: int=2024):
 # change color of second driver if in same team (see season qualifying performance function)
 # show laptimes in correct format
 @register_function
-def laptime_plot(session, drivers_list=[]):#(event: str, drivers_list: list = [], year: int = 2024):
+def laptime_plot(session, drivers_list=[]):#(event: str, drivers_list: list = [], year: int = 2025):
     """
     Generates a line plot of the lap times of specified drivers in a specific Grand Prix using Plotly.
 
@@ -1133,7 +1133,7 @@ def laptime_plot(session, drivers_list=[]):#(event: str, drivers_list: list = []
 # Inspired by fastf1
 # NEED TO FIX AND PUT SESSION BUT PROBLEMS DUE TO 'Q'
 @register_function
-def get_qualifying_results(event: str, year: int = 2024):
+def get_qualifying_results(event: str, year: int = 2025):
     """
     Retrieves and visualizes the qualifying results for a specific Grand Prix using Plotly.
 
@@ -1330,13 +1330,13 @@ def laptime_distribution_plot(session):
     
 # temporary before I make another one to make it look nicer
 @register_function
-def get_pit_stops(session): #(event: str, year: int=2024):
+def get_pit_stops(session): #(event: str, year: int=2025):
     """
         Returns the pit stops of a specific race.
 
         Parameters:
             event (str): The specific Grand Prix or event (e.g., 'Monaco Grand Prix').
-            year (int): The season's year. Defaults to 2024.
+            year (int): The season's year. Defaults to 2025.
 
     """
     
@@ -1377,7 +1377,7 @@ def get_pit_stops(session): #(event: str, year: int=2024):
 
 
 
-def get_wikipedia_text(session): #(event: str, year: int=2024):
+def get_wikipedia_text(session): #(event: str, year: int=2025):
     """
         Returns wikipedia race report
     """
@@ -1388,7 +1388,7 @@ def get_wikipedia_text(session): #(event: str, year: int=2024):
     # race_names = race_names_gen(year=year)
 
     # Retrieve the correct event name from fastf1
-    full_event_name = f"{year} {fastf1.get_event(2024, event)['EventName']}"
+    full_event_name = f"{year} {fastf1.get_event(2025, event)['EventName']}"
 
     long_text = get_race_report_text(full_event_name)
     short_text = extract_short_paragraph(long_text, max_length=3000)
@@ -1398,7 +1398,7 @@ def get_wikipedia_text(session): #(event: str, year: int=2024):
     return short_text
 
 
-def get_drivers(session): #(event: str, year: int=2024):
+def get_drivers(session): #(event: str, year: int=2025):
     """
         Get drivers and their colors for specific event
     """
@@ -1421,7 +1421,7 @@ def get_drivers(session): #(event: str, year: int=2024):
 # - which "round" it is of the schedule
 # - have an option for whole season
 @register_function
-def race_statistics(session): #(event: str, year: int=2024):
+def race_statistics(session): #(event: str, year: int=2025):
     """
     Fetches and displays basic statistics about a Formula 1 race.
     
@@ -1442,7 +1442,7 @@ def race_statistics(session): #(event: str, year: int=2024):
 # Return parameters of function
 func_param_gen = lambda f : dict(inspect.signature(f).parameters.items()).keys()
 
-def get_total_laps(session): #(event:str, year: int=2024):
+def get_total_laps(session): #(event:str, year: int=2025):
     """
         Returns total laps number of a race
     """
@@ -1452,7 +1452,7 @@ def get_total_laps(session): #(event:str, year: int=2024):
 
 # Based on example function from FastF1
 @register_function
-def plot_tyre_strategies(session): #(event: str, year: int = 2024):
+def plot_tyre_strategies(session): #(event: str, year: int = 2025):
     """
     Plots the tyre strategies for all drivers during a race session using Plotly.
 
@@ -1584,7 +1584,7 @@ def log_time(function_name, time_taken):
 
 
 # @register_function
-# def lap_time_df_gen(event: str, drivers_list: list, year: int = 2024, lap=12, fastest_bool=False):
+# def lap_time_df_gen(event: str, drivers_list: list, year: int = 2025, lap=12, fastest_bool=False):
 #     '''
 #         Generates laptime DataFrame from specific drivers
 #     '''
@@ -1623,7 +1623,7 @@ def log_time(function_name, time_taken):
 # - which "round" it is of the schedule
 # - have an option for whole season
 # @register_function
-# def race_statistics(event: str, year: int=2024):
+# def race_statistics(event: str, year: int=2025):
 #     """
 #     Fetches and displays basic statistics about a Formula 1 race.
     
