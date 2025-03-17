@@ -91,7 +91,7 @@ def main_page():
 
     # Initialize data
     grand_prix_by_year = {}
-    YEARS = range(2018, 2025)
+    YEARS = range(2018, 2026)
 
     for year in YEARS:
         year_event_names = list(get_schedule_until_now(year)['EventName'])
