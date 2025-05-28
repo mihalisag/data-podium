@@ -3,7 +3,6 @@ dash==2.18.2
 matplotlib==3.10.1
 nicegui==2.12.1
 numpy==2.2.4
-openai==1.66.3
 pandas==2.2.3
 plotly==6.0.0
 python-dotenv==1.0.1
