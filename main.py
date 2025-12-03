@@ -5,7 +5,7 @@ import time
 import threading
 import secrets
 
-# from openai import OpenAI
+from openai import OpenAI
 from nicegui import ui, run 
 
 import general_utils
@@ -24,17 +24,16 @@ def other_page():
 
 # Create a hidden input to store the computed enabled state for the button.
 # Its value will be True if all three selects have a valid value.
-
+computed_enabled = ui.input(value=False).props('hidden')
 
 @ui.page('/')
 def main_page():
 
-    computed_enabled = ui.input(value=False).props('hidden')
     computed_enabled.value = False
-
+    
     ui.link('About', other_page).style("position: absolute; top: 8px; right: 20px;").classes('ml-2')
 
-    # ui.html('<div style="height: 10px;"></div>', sanitize=False)  # This adds a 10px spacer
+    ui.html('<div style="height: 10px;"></div>')  # This adds a 10px spacer
 
     ui.page_title("Data Podium")
     ui.colors(primary='#FF1821')#, secondary='#53B689', accent='#111B1E', positive='#53B689')
@@ -422,5 +421,5 @@ def main_page():
     
     result_placeholder = ui.column().style("width: 100%;") # Placeholder for the rendered result
 
-  
+        
 ui.run(host='127.0.0.1', port=8080, favicon="🏎️")
